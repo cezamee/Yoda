@@ -45,7 +45,7 @@ You need the following to build and run Yoda:
 - **libbpf** development headers (for eBPF/XDP userspace interaction)
 - **bpftool** (or **pahole**) to generate the `vmlinux.h` header for CO-RE eBPF programs
 - **Make** (for build automation)
-- **Root privileges** (required for AF_XDP, eBPF, and loading the XDP program and Yoda itself)
+- **Root privileges** (required for AF_XDP, eBPF, loading the XDP program and Yoda itself)
 
 
 On Ubuntu/Debian, install the required packages with:
