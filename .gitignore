@@ -1,0 +1,31 @@
+# Binaries
+*.o
+*.out
+yoda
+*.exe
+
+# Build and dist folders
+/build/
+/bin/
+/dist/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Editor/system files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Certificates/keys (if generated locally)
+*.key
+*.crt
+
+# Logs
+*.log
+
+# eBPF CO-RE headers (if generated)
+vmlinux.h

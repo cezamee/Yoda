@@ -1,0 +1,186 @@
+// MIT License
+// Copyright (c) 2025 Cezame
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+// gVisor Netstack initialization and TCP/TLS server setup
+// Initialisation du Netstack gVisor et configuration du serveur TCP/TLS
+package main
+
+import (
+	"crypto/tls"
+	"fmt"
+	"log"
+	"net"
+	"runtime"
+
+	"gvisor.dev/gvisor/pkg/tcpip"
+	"gvisor.dev/gvisor/pkg/tcpip/header"
+	"gvisor.dev/gvisor/pkg/tcpip/link/channel"
+	"gvisor.dev/gvisor/pkg/tcpip/network/ipv4"
+	"gvisor.dev/gvisor/pkg/tcpip/stack"
+	"gvisor.dev/gvisor/pkg/tcpip/transport/tcp"
+	"gvisor.dev/gvisor/pkg/tcpip/transport/udp"
+	"gvisor.dev/gvisor/pkg/waiter"
+)
+
+// Create and configure the gVisor network stack (NIC, IP, routes)
+// Crée et configure le Netstack gVisor (NIC, IP, routes)
+func createNetstack() (*stack.Stack, *channel.Endpoint) {
+
+	// Initialize stack with IPv4, TCP, UDP support
+	// Initialise la stack avec support IPv4, TCP, UDP
+	s := stack.New(stack.Options{
+		NetworkProtocols:   []stack.NetworkProtocolFactory{ipv4.NewProtocol},
+		TransportProtocols: []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol},
+	})
+
+	// Create virtual NIC endpoint (channel)
+	// Crée un endpoint NIC virtuel (channel)
+	linkEP := channel.New(64, netMTU, "")
+
+	// Register NIC with the stack
+	// Enregistre le NIC dans la stack
+	if err := s.CreateNIC(netNicID, linkEP); err != nil {
+		log.Fatalf("Failed to create NIC: %v", err)
+	}
+
+	// Assign IPv4 address to NIC
+	// Assigne une adresse IPv4 au NIC
+	protocolAddr := tcpip.ProtocolAddress{
+		Protocol: ipv4.ProtocolNumber,
+		AddressWithPrefix: tcpip.AddressWithPrefix{
+			Address:   tcpip.AddrFromSlice(net.ParseIP(netLocalIP).To4()),
+			PrefixLen: 24,
+		},
+	}
+
+	// Add address to NIC
+	// Ajoute l'adresse au NIC
+	if err := s.AddProtocolAddress(netNicID, protocolAddr, stack.AddressProperties{}); err != nil {
+		log.Fatalf("Failed to add address: %v", err)
+	}
+
+	// Add default route (gateway)
+	// Ajoute la route par défaut (gateway)
+	s.SetRouteTable([]tcpip.Route{
+		{
+			Destination: header.IPv4EmptySubnet,
+			Gateway:     tcpip.AddrFromSlice(net.ParseIP("192.168.0.1").To4()),
+			NIC:         netNicID,
+		},
+	})
+
+	// Return stack and NIC endpoint
+	// Retourne la stack et l'endpoint NIC
+	return s, linkEP
+}
+
+func (b *NetstackBridge) setupTCPServer() {
+	fmt.Printf("🔧 Setting up TLS PTY Reverse Shell server...\n")
+
+	// Generate self-signed certificate
+	cert, err := generateSelfSignedCert()
+	if err != nil {
+		log.Fatalf("Failed to generate certificate: %v", err)
+	}
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ServerName:   "Yoda",
+		MinVersion:   tls.VersionTLS12,
+		MaxVersion:   tls.VersionTLS12,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+		},
+		PreferServerCipherSuites: true,
+		InsecureSkipVerify:       false,
+		ClientAuth:               tls.NoClientCert,
+	}
+
+	fwd := tcp.NewForwarder(b.stack, 0, 256, func(r *tcp.ForwarderRequest) {
+		if r.ID().LocalPort != tcpListenPort {
+			r.Complete(true)
+			return
+		}
+
+		// Create session key from remote endpoint for logging only
+		sessionKey := fmt.Sprintf("%s:%d", r.ID().RemoteAddress, r.ID().RemotePort)
+		fmt.Printf("🎯 New TLS PTY reverse shell connection from %s!\n", sessionKey)
+
+		var wq waiter.Queue
+		ep, err := r.CreateEndpoint(&wq)
+		if err != nil {
+			fmt.Printf("❌ Failed to create endpoint: %v\n", err)
+			r.Complete(true)
+			return
+		}
+
+		r.Complete(false)
+
+		go func() {
+			defer func() {
+				ep.Close()
+				fmt.Printf("📡 Session %s cleaned up\n", sessionKey)
+			}()
+
+			// CPU Affinity Optimization: Pin TLS session to PTY I/O core
+			if runtime.NumCPU() >= 4 {
+				if err := setCPUAffinity(cpuPTYIO); err != nil {
+					fmt.Printf("⚠️ CPU affinity for PTY I/O failed: %v\n", err)
+				}
+			}
+
+			// Create TLS wrapper around gVisor endpoint
+			waitEntry, notifyCh := waiter.NewChannelEntry(waiter.ReadableEvents)
+			wq.EventRegister(&waitEntry)
+			defer wq.EventUnregister(&waitEntry)
+
+			gConn := &gVisorConn{
+				ep:     ep,
+				wq:     &wq,
+				notify: notifyCh,
+				done:   make(chan struct{}),
+			}
+
+			// Wrap with TLS
+			tlsConn := tls.Server(gConn, tlsConfig)
+
+			// Perform TLS handshake
+			fmt.Printf("🔐 Starting TLS handshake for %s...\n", sessionKey)
+			err := tlsConn.Handshake()
+			if err != nil {
+				fmt.Printf("❌ TLS handshake failed for %s: %v\n", sessionKey, err)
+				gConn.Close()
+				return
+			}
+
+			fmt.Printf("✅ TLS connection established for %s\n", sessionKey)
+
+			// Create a full PTY session with TLS
+			b.handleTLSPTYSession(tlsConn, sessionKey)
+		}()
+	})
+
+	b.stack.SetTransportProtocolHandler(tcp.ProtocolNumber, fwd.HandlePacket)
+	fmt.Printf("✅ TLS PTY reverse shell server ready\n")
+}
