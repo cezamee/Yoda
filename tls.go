@@ -1,27 +1,6 @@
-// MIT License
-// Copyright (c) 2025 Cezame
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-
 /*
-TLS and Netstack integration for Grogu AF_XDP server
-Intégration TLS et Netstack pour le serveur Grogu AF_XDP
+TLS and Netstack integration for Yoda AF_XDP server
+Intégration TLS et Netstack pour le serveur Yoda AF_XDP
 
 - Manages TLS certificate generation and secure connections
 - Provides thread-safe TLS writes to prevent MAC corruption
@@ -54,19 +33,16 @@ import (
 // NetstackBridge links XDP, netstack, and TLS components
 // NetstackBridge relie les composants XDP, netstack et TLS
 type NetstackBridge struct {
-	cb             *xdp.ControlBlock      // XDP control block / Bloc de contrôle XDP
-	queueID        uint32                 // XDP queue ID / Identifiant de file XDP
-	stack          *stack.Stack           // Gvisor netstack / Netstack Gvisor
-	linkEP         *channel.Endpoint      // Netstack endpoint / Point de terminaison netstack
-	statsMap       *ebpf.Map              // eBPF stats map / Map eBPF statistiques
-	clientMAC      [6]byte                // Fixed-size MAC array / Tableau MAC taille fixe
-	srcMAC         []byte                 // Source MAC address / Adresse MAC source
-	completionRing lockFreeCompletionRing // Lock-free completion tracking / Suivi lock-free
-	tlsMutex       sync.Mutex             // TLS write protection / Protection écriture TLS
+	cb        *xdp.ControlBlock // XDP control block / Bloc de contrôle XDP
+	queueID   uint32            // XDP queue ID / Identifiant de file XDP
+	stack     *stack.Stack      // Gvisor netstack / Netstack Gvisor
+	linkEP    *channel.Endpoint // Netstack endpoint / Point de terminaison netstack
+	statsMap  *ebpf.Map         // eBPF stats map / Map eBPF statistiques
+	clientMAC [6]byte           // Fixed-size MAC array / Tableau MAC taille fixe
+	srcMAC    []byte            // Source MAC address / Adresse MAC source
+	tlsMutex  sync.Mutex        // TLS write protection / Protection écriture TLS
 }
 
-// Generate a self-signed TLS certificate for the server
-// Génère un certificat TLS auto-signé pour le serveur
 func generateSelfSignedCert() (tls.Certificate, error) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -91,24 +67,20 @@ func generateSelfSignedCert() (tls.Certificate, error) {
 		BasicConstraintsValid: true,
 	}
 
-	// Add IPs and DNS names / Ajoute IP et noms DNS
 	template.IPAddresses = append(template.IPAddresses, net.ParseIP(netLocalIP))
 	template.IPAddresses = append(template.IPAddresses, net.ParseIP("127.0.0.1"))
 	template.DNSNames = append(template.DNSNames, "localhost")
 	template.DNSNames = append(template.DNSNames, "Yoda")
 	template.DNSNames = append(template.DNSNames, netLocalIP)
 
-	// Create certificate / Crée le certificat
 	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
 	if err != nil {
 		return tls.Certificate{}, err
 	}
 
-	// Encode certificate and key to PEM / Encode en PEM
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
 	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
 
-	// Return TLS key pair / Retourne la paire TLS
 	return tls.X509KeyPair(certPEM, keyPEM)
 }
 

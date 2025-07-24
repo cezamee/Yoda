@@ -1,24 +1,3 @@
-// MIT License
-// Copyright (c) 2025 Cezame
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-
 // TLS PTY session handler: launches interactive shell over TLS, manages terminal size and I/O
 // Handler de session PTY TLS : lance un shell interactif via TLS, gère la taille du terminal et les flux I/O
 package main
@@ -42,12 +21,8 @@ import (
 func (b *NetstackBridge) handleTLSPTYSession(tlsConn *tls.Conn, _ string) {
 	defer tlsConn.Close()
 
-	// Start interactive bash shell with PTY
-	// Démarre un shell bash interactif avec PTY
 	cmd := exec.Command("/bin/bash", "-l", "-i")
 
-	// Set environment for shell usability and color
-	// Définit l'environnement pour la complétion et les couleurs
 	cmd.Env = []string{
 		"TERM=xterm-256color",
 		"SHELL=/bin/bash",
@@ -61,16 +36,12 @@ func (b *NetstackBridge) handleTLSPTYSession(tlsConn *tls.Conn, _ string) {
 		"HISTFILE=/dev/null",
 	}
 
-	// Create PTY for the shell process
-	// Crée le PTY pour le processus shell
 	ptmx, err := pty.Start(cmd)
 	if err != nil {
 		fmt.Printf("❌ Failed to start PTY: %v\n", err)
 		return
 	}
 
-	// Cleanup: close PTY and terminate bash on exit
-	// Nettoyage : ferme le PTY et termine bash à la fin
 	defer func() {
 		fmt.Printf("🧹 Cleaning up TLS PTY session...\n")
 		ptmx.Close()
@@ -196,7 +167,7 @@ func (b *NetstackBridge) handleTLSPTYSession(tlsConn *tls.Conn, _ string) {
 	// Goroutine: monitor bash process state and cleanup
 	// Goroutine : surveille l'état du bash et nettoie
 	go func() {
-		cmd.Wait() // Wait for bash to terminate naturally
+		cmd.Wait()
 		fmt.Printf("📡 Bash process ended normally\n")
 		select {
 		case <-done:
@@ -231,8 +202,7 @@ func (b *NetstackBridge) handleTLSPTYSession(tlsConn *tls.Conn, _ string) {
 
 				if n > 0 {
 					data := buffer[:n]
-					// Write shell output to TLS connection
-					// Écrit la sortie du shell vers la connexion TLS
+
 					b.safeTLSWrite(tlsConn, data)
 				}
 			}
@@ -267,8 +237,6 @@ func (b *NetstackBridge) handleTLSPTYSession(tlsConn *tls.Conn, _ string) {
 					return
 				}
 
-				// Forward client input to PTY
-				// Transmet l'entrée client au PTY
 				_, err := ptmx.Write(data)
 				if err != nil {
 					fmt.Printf("❌ Failed to write to PTY: %v\n", err)

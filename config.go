@@ -1,24 +1,3 @@
-// MIT License
-// Copyright (c) 2025 Cezame
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-
 // Network and performance configuration constants
 // Constantes de configuration réseau et performance
 package main
@@ -42,8 +21,8 @@ const (
 	interfaceName   = "enp46s0" // Network interface name / Nom de l'interface réseau
 
 	ptyBufferSize = 16384 // PTY read buffer (16KB) / Buffer de lecture PTY (16Ko)
-
-	tcpListenPort = 443 // TCP listen port / Port d'écoute TCP
+	txBatchSize   = 32    // TX batch size / Taille du lot TX
+	tcpListenPort = 443   // TCP listen port / Port d'écoute TCP
 
 	// CPU affinity for optimal performance
 	// Affinité CPU pour performance optimale

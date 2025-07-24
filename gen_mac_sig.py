@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Génère des adresses MAC dont la signature XOR faible collision sur 4 octets == signature voulue.
-Usage : python3 gen_mac_sig.py 0x4242 [nombre]
+Generates MAC addresses whose 4-byte weak XOR signature matches the desired signature.
+Usage: python3 gen_mac_sig.py 0x4242 [count]
 """
 import random
 import sys
@@ -21,9 +21,9 @@ def gen_mac_with_sig(sig, n=5):
 
 def get_mac_sig(mac_str):
     """
-    Calcule la signature XOR faible collision sur 4 octets d'une MAC donnée.
-    Entrée : mac_str sous forme 'aa:bb:cc:dd:ee:ff'
-    Retourne : signature (int)
+    Computes the 4-byte weak XOR signature of a given MAC address.
+    Input: mac_str as 'aa:bb:cc:dd:ee:ff'
+    Returns: signature (int)
     """
     parts = mac_str.split(":")
     if len(parts) < 4:
@@ -42,9 +42,9 @@ if __name__ == "__main__":
         mac = sys.argv[2]
         try:
             sig = get_mac_sig(mac)
-            print(f"Signature de {mac} : 0x{sig:04x}")
+            print(f"Signature of {mac}: 0x{sig:04x}")
         except Exception as e:
-            print(f"Erreur : {e}")
+            print(f"Error: {e}")
             sys.exit(1)
     else:
         sig = int(sys.argv[1], 16)

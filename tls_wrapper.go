@@ -1,24 +1,3 @@
-// MIT License
-// Copyright (c) 2025 Cezame
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-
 /*
 TLS wrapper for gVisor endpoints
 Enveloppe TLS pour les endpoints gVisor
@@ -100,8 +79,6 @@ func (c *gVisorConn) Write(b []byte) (n int, err error) {
 	return 0, fmt.Errorf("write failed after retries")
 }
 
-// Close closes the connection and underlying endpoint
-// Close ferme la connexion et l'endpoint sous-jacent
 func (c *gVisorConn) Close() error {
 	select {
 	case <-c.done:
@@ -112,8 +89,6 @@ func (c *gVisorConn) Close() error {
 	return nil
 }
 
-// LocalAddr returns the local address
-// LocalAddr retourne l'adresse locale
 func (c *gVisorConn) LocalAddr() net.Addr {
 	return &net.TCPAddr{IP: net.ParseIP(netLocalIP), Port: tcpListenPort}
 }
