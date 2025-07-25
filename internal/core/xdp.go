@@ -1,6 +1,6 @@
 // XDP initialization and configuration utilities
 // Utilitaires pour l'initialisation et la configuration XDP
-package main
+package core
 
 import (
 	"log"
@@ -13,7 +13,7 @@ import (
 
 // initializeXDP loads and configures all XDP components for the given interface
 // initializeXDP charge et configure tous les composants XDP pour l'interface donnée
-func initializeXDP(interfaceName string) (*ebpf.Collection, *ebpf.Program, *ebpf.Map, *ebpf.Map, *xdp.ControlBlock, link.Link, []byte, uint32) {
+func InitializeXDP(interfaceName string) (*ebpf.Collection, *ebpf.Program, *ebpf.Map, *ebpf.Map, *xdp.ControlBlock, link.Link, []byte, uint32) {
 	queueID := uint32(0)
 
 	// Get network interface by name

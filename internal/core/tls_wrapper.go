@@ -10,7 +10,7 @@ Enveloppe TLS pour les endpoints gVisor
 - Gère les lectures/écritures non bloquantes avec logique de notification et retry
 - Utilisé pour TLS sur une stack réseau personnalisée
 */
-package main
+package core
 
 import (
 	"bytes"

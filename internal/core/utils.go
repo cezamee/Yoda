@@ -1,6 +1,6 @@
 // Utility functions for CPU affinity and NUMA topology management
 // Fonctions utilitaires pour la gestion de l'affinité CPU et la topologie NUMA
-package main
+package core
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 
 // Set CPU affinity for optimal performance
 // Définit l'affinité CPU pour des performances optimales
-func setCPUAffinity(cpuCore int) error {
+func SetCPUAffinity(cpuCore int) error {
 	runtime.LockOSThread()
 
 	numCPU := runtime.NumCPU()
@@ -35,16 +35,16 @@ func setCPUAffinity(cpuCore int) error {
 
 // Detect NUMA topology and provide basic awareness info
 // Détecte la topologie NUMA et fournit des informations de base
-func detectNUMATopology() {
+func DetectNUMATopology() {
 	numCPU := runtime.NumCPU()
 	fmt.Printf("🔍 System topology: %d CPU cores detected\n", numCPU)
 
 	if numCPU >= 4 {
 		fmt.Printf("✅ CPU affinity optimization: Ideal configuration (4+ cores)\n")
-		fmt.Printf("   - Core %d: RX processing\n", cpuRXProcessing)
-		fmt.Printf("   - Core %d: TX processing\n", cpuTXProcessing)
-		fmt.Printf("   - Core %d: TLS crypto\n", cpuTLSCrypto)
-		fmt.Printf("   - Core %d: PTY I/O\n", cpuPTYIO)
+		fmt.Printf("   - Core %d: RX processing\n", CpuRXProcessing)
+		fmt.Printf("   - Core %d: TX processing\n", CpuTXProcessing)
+		fmt.Printf("   - Core %d: TLS crypto\n", CpuTLSCrypto)
+		fmt.Printf("   - Core %d: PTY I/O\n", CpuPTYIO)
 	} else if numCPU >= 2 {
 		fmt.Printf("⚠️ CPU affinity optimization: Limited cores (%d), may have contention\n", numCPU)
 	} else {

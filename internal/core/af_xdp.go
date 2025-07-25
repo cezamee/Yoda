@@ -1,6 +1,6 @@
 // AF_XDP packet processing and optimization utilities
 // Utilitaires pour le traitement de paquets et optimisation AF_XDP
-package main
+package core
 
 import (
 	"context"
@@ -27,17 +27,17 @@ func init() {
 
 // Start main AF_XDP packet processing loop
 // Démarre la boucle principale de traitement de paquets AF_XDP
-func (b *NetstackBridge) startPacketProcessing() {
+func (b *NetstackBridge) StartPacketProcessing() {
 	fmt.Printf("🔄 Starting packet processing with proper AF_XDP queue management...\n")
 
-	b.cb.UMEM.Lock()
-	b.cb.Fill.FillAll(&b.cb.UMEM)
-	b.cb.UMEM.Unlock()
+	b.Cb.UMEM.Lock()
+	b.Cb.Fill.FillAll(&b.Cb.UMEM)
+	b.Cb.UMEM.Unlock()
 	fmt.Printf("📋 Fill Queue initialized\n")
 
 	go func() {
 		if runtime.NumCPU() >= 4 {
-			if err := setCPUAffinity(cpuTXProcessing); err != nil {
+			if err := SetCPUAffinity(CpuTXProcessing); err != nil {
 				fmt.Printf("⚠️ CPU affinity for TX processing failed: %v\n", err)
 			}
 		}
@@ -94,31 +94,31 @@ func (b *NetstackBridge) startPacketProcessing() {
 // Process TX completion queue
 // Traite la file de complétion TX
 func (b *NetstackBridge) processCompletionQueue() bool {
-	b.cb.UMEM.Lock()
-	nCompleted, completionIndex := b.cb.Completion.Peek()
+	b.Cb.UMEM.Lock()
+	nCompleted, completionIndex := b.Cb.Completion.Peek()
 	if nCompleted > 0 {
 		completedFrames := make([]uint64, nCompleted)
 		for i := uint32(0); i < nCompleted; i++ {
-			completedFrames[i] = b.cb.Completion.Get(completionIndex + i)
+			completedFrames[i] = b.Cb.Completion.Get(completionIndex + i)
 		}
-		b.cb.Completion.Release(nCompleted)
+		b.Cb.Completion.Release(nCompleted)
 		for _, frameAddr := range completedFrames {
-			b.cb.UMEM.FreeFrame(frameAddr)
+			b.Cb.UMEM.FreeFrame(frameAddr)
 		}
-		b.cb.UMEM.Unlock()
+		b.Cb.UMEM.Unlock()
 		return true
 	}
-	b.cb.UMEM.Unlock()
+	b.Cb.UMEM.Unlock()
 	return false
 }
 
 // Process RX queue
 // Traite la file RX
 func (b *NetstackBridge) processRXQueue() bool {
-	b.cb.UMEM.Lock()
-	nReceived, index := b.cb.RX.Peek()
+	b.Cb.UMEM.Lock()
+	nReceived, index := b.Cb.RX.Peek()
 	if nReceived == 0 {
-		b.cb.UMEM.Unlock()
+		b.Cb.UMEM.Unlock()
 		return false
 	}
 
@@ -129,16 +129,16 @@ func (b *NetstackBridge) processRXQueue() bool {
 
 	packets := make([]rxPacket, nReceived)
 	for i := uint32(0); i < nReceived; i++ {
-		desc := b.cb.RX.Get(index + i)
-		packetData := b.cb.UMEM.Get(desc)
+		desc := b.Cb.RX.Get(index + i)
+		packetData := b.Cb.UMEM.Get(desc)
 		packets[i] = rxPacket{
 			buffer:    packetData, // direct UMEM buffer
 			frameAddr: uint64(desc.Addr),
 		}
 	}
 
-	b.cb.RX.Release(nReceived)
-	b.cb.UMEM.Unlock()
+	b.Cb.RX.Release(nReceived)
+	b.Cb.UMEM.Unlock()
 
 	// Phase 2: Process packets WITHOUT holding UMEM lock
 	for _, pkt := range packets {
@@ -146,19 +146,19 @@ func (b *NetstackBridge) processRXQueue() bool {
 	}
 
 	// Phase 3: Free RX frames directly
-	b.cb.UMEM.Lock()
+	b.Cb.UMEM.Lock()
 	for _, pkt := range packets {
-		b.cb.UMEM.FreeFrame(pkt.frameAddr)
+		b.Cb.UMEM.FreeFrame(pkt.frameAddr)
 	}
-	b.cb.UMEM.Unlock()
+	b.Cb.UMEM.Unlock()
 
 	return true
 }
 
 func (b *NetstackBridge) maintainFillQueue() {
-	b.cb.UMEM.Lock()
-	b.cb.Fill.FillAll(&b.cb.UMEM)
-	b.cb.UMEM.Unlock()
+	b.Cb.UMEM.Lock()
+	b.Cb.Fill.FillAll(&b.Cb.UMEM)
+	b.Cb.UMEM.Unlock()
 }
 
 // --- TX Batch definitions ---
@@ -196,7 +196,7 @@ func (b *NetstackBridge) handleOutboundPackets() {
 				b.flushTXBatch()
 			}
 		default:
-			pkt := b.linkEP.ReadContext(ctx)
+			pkt := b.LinkEP.ReadContext(ctx)
 			if pkt == nil {
 				// Flush any remaining batch on end-of-stream or idle
 				b.flushTXBatch()
@@ -221,38 +221,38 @@ func (b *NetstackBridge) sendPacketTX(ipData []byte) {
 		return
 	}
 
-	b.cb.UMEM.Lock()
-	defer b.cb.UMEM.Unlock()
+	b.Cb.UMEM.Lock()
+	defer b.Cb.UMEM.Unlock()
 
 	// FIRST: Process completion queue to free up sent frames (batch operation)
-	nCompleted, completionIndex := b.cb.Completion.Peek()
+	nCompleted, completionIndex := b.Cb.Completion.Peek()
 	if nCompleted > 0 {
 		completedFrames := make([]uint64, nCompleted)
 		for i := uint32(0); i < nCompleted; i++ {
-			completedFrames[i] = b.cb.Completion.Get(completionIndex + i)
+			completedFrames[i] = b.Cb.Completion.Get(completionIndex + i)
 		}
-		b.cb.Completion.Release(nCompleted)
+		b.Cb.Completion.Release(nCompleted)
 
 		for _, frameAddr := range completedFrames {
-			b.cb.UMEM.FreeFrame(frameAddr)
+			b.Cb.UMEM.FreeFrame(frameAddr)
 		}
 	}
 
 	// SECOND: Try to reserve a TX descriptor
-	nReserved, index := b.cb.TX.Reserve(&b.cb.UMEM, 1)
+	nReserved, index := b.Cb.TX.Reserve(&b.Cb.UMEM, 1)
 	if nReserved == 0 {
-		nCompleted, completionIndex := b.cb.Completion.Peek()
+		nCompleted, completionIndex := b.Cb.Completion.Peek()
 		if nCompleted > 0 {
 			completedFrames := make([]uint64, nCompleted)
 			for i := uint32(0); i < nCompleted; i++ {
-				completedFrames[i] = b.cb.Completion.Get(completionIndex + i)
+				completedFrames[i] = b.Cb.Completion.Get(completionIndex + i)
 			}
-			b.cb.Completion.Release(nCompleted)
+			b.Cb.Completion.Release(nCompleted)
 			for _, frameAddr := range completedFrames {
-				b.cb.UMEM.FreeFrame(frameAddr)
+				b.Cb.UMEM.FreeFrame(frameAddr)
 			}
 			// Retry reservation
-			nReserved, index = b.cb.TX.Reserve(&b.cb.UMEM, 1)
+			nReserved, index = b.Cb.TX.Reserve(&b.Cb.UMEM, 1)
 		}
 
 		if nReserved == 0 {
@@ -261,28 +261,28 @@ func (b *NetstackBridge) sendPacketTX(ipData []byte) {
 	}
 
 	// THIRD: Get free frame for packet
-	frameAddr := b.cb.UMEM.AllocFrame()
+	frameAddr := b.Cb.UMEM.AllocFrame()
 	if frameAddr == 0 {
 		return
 	}
 
-	frame := b.cb.UMEM.Get(unix.XDPDesc{Addr: frameAddr, Len: uint32(ethHeaderSize + len(ipData))})
+	frame := b.Cb.UMEM.Get(unix.XDPDesc{Addr: frameAddr, Len: uint32(ethHeaderSize + len(ipData))})
 	if len(frame) < ethHeaderSize+len(ipData) || ethHeaderSize+len(ipData) > frameSize {
-		b.cb.UMEM.FreeFrame(frameAddr)
+		b.Cb.UMEM.FreeFrame(frameAddr)
 		return
 	}
 
 	copy(frame[0:ethHeaderSize], prebuiltEtherHeader)
-	if b.clientMAC != [6]byte{} {
-		copy(frame[0:6], b.clientMAC[:])
+	if b.ClientMAC != [6]byte{} {
+		copy(frame[0:6], b.ClientMAC[:])
 	}
 
-	copy(frame[6:12], b.srcMAC)
+	copy(frame[6:12], b.SrcMAC)
 	copy(frame[ethHeaderSize:], ipData)
 
 	desc := unix.XDPDesc{Addr: frameAddr, Len: uint32(ethHeaderSize + len(ipData))}
-	b.cb.TX.Set(index, desc)
-	b.cb.TX.Notify()
+	b.Cb.TX.Set(index, desc)
+	b.Cb.TX.Notify()
 }
 
 func (b *NetstackBridge) processPacket(packetData []byte) {
@@ -290,8 +290,8 @@ func (b *NetstackBridge) processPacket(packetData []byte) {
 		return
 	}
 
-	if b.clientMAC == [6]byte{} {
-		copy(b.clientMAC[:], packetData[6:12])
+	if b.ClientMAC == [6]byte{} {
+		copy(b.ClientMAC[:], packetData[6:12])
 	}
 
 	ipPacket := packetData[ethHeaderSize:]
@@ -299,6 +299,6 @@ func (b *NetstackBridge) processPacket(packetData []byte) {
 	pkt := stack.NewPacketBuffer(stack.PacketBufferOptions{
 		Payload: buffer.MakeWithData(ipPacket),
 	})
-	b.linkEP.InjectInbound(ipv4.ProtocolNumber, pkt)
+	b.LinkEP.InjectInbound(ipv4.ProtocolNumber, pkt)
 	pkt.DecRef()
 }

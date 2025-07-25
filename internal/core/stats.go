@@ -1,6 +1,6 @@
 // eBPF statistics display utility
 // Utilitaire d'affichage des statistiques eBPF
-package main
+package core
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ func (b *NetstackBridge) printStats() {
 
 		// Read values from all CPUs / Lire les valeurs de tous les CPUs
 		var perCPUValues []uint64
-		if err := b.statsMap.Lookup(&key, &perCPUValues); err != nil {
+		if err := b.StatsMap.Lookup(&key, &perCPUValues); err != nil {
 			fmt.Printf("⚠️ Failed to read stats[%d]: %v\n", i, err)
 			stats[i] = 0
 			continue

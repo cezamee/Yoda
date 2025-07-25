@@ -1,6 +1,6 @@
 // TLS PTY session handler: launches interactive shell over TLS, manages terminal size and I/O
 // Handler de session PTY TLS : lance un shell interactif via TLS, gère la taille du terminal et les flux I/O
-package main
+package core
 
 import (
 	"bytes"

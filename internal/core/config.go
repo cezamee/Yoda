@@ -1,6 +1,6 @@
 // Network and performance configuration constants
 // Constantes de configuration réseau et performance
-package main
+package core
 
 import (
 	"gvisor.dev/gvisor/pkg/tcpip"
@@ -18,7 +18,7 @@ const (
 	ethHeaderSize   = 14        // Ethernet header size / Taille en-tête Ethernet
 	ipHeaderMinSize = 20        // Minimum IP header size / Taille minimale en-tête IP
 	frameSize       = 2048      // Frame size / Taille de trame
-	interfaceName   = "enp46s0" // Network interface name / Nom de l'interface réseau
+	InterfaceName   = "enp46s0" // Network interface name / Nom de l'interface réseau
 
 	ptyBufferSize = 16384 // PTY read buffer (16KB) / Buffer de lecture PTY (16Ko)
 	txBatchSize   = 32    // TX batch size / Taille du lot TX
@@ -26,8 +26,8 @@ const (
 
 	// CPU affinity for optimal performance
 	// Affinité CPU pour performance optimale
-	cpuRXProcessing = 0 // RX packet processing core / Cœur RX
-	cpuTXProcessing = 1 // TX packet processing core / Cœur TX
-	cpuTLSCrypto    = 2 // TLS/crypto operations core / Cœur TLS/crypto
-	cpuPTYIO        = 3 // PTY I/O operations core / Cœur PTY I/O
+	CpuRXProcessing = 0 // RX packet processing core / Cœur RX
+	CpuTXProcessing = 1 // TX packet processing core / Cœur TX
+	CpuTLSCrypto    = 2 // TLS/crypto operations core / Cœur TLS/crypto
+	CpuPTYIO        = 3 // PTY I/O operations core / Cœur PTY I/O
 )

@@ -22,7 +22,7 @@ Yoda is an experimental network server (backdoor ? =P) using AF_XDP, eBPF, and a
 
 ## File Overview
 - `cmd/cli/main.go` — Yoda client code.
-- `main.go` — Entry point, server orchestration.
+- `cmd/server/main.go` — Entry point, server orchestration.
 - `af_xdp.go` — AF_XDP queue management, lock-free ring buffers, packet processing.
 - `xdp.go` — XDP program initialization and management.
 - `bpf/xdp_redirect.c` — eBPF/XDP C program for packet redirection.

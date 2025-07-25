@@ -15,7 +15,7 @@ CLI_BIN = yoda-client
 all: yoda cli bpf
 
 yoda:
-	$(GO) build -o bin/$(YODA_BIN)
+	cd cmd/server &&$(GO) build -o ../../bin/$(YODA_BIN)
 
 cli:
 	cd cmd/cli && $(GO) build -o ../../bin/$(CLI_BIN)

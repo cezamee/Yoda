@@ -1,4 +1,4 @@
-module grogu_netstack
+module github.com/cezamee/Yoda
 
 go 1.24.1
 

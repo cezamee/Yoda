@@ -10,7 +10,7 @@ Intégration TLS et Netstack pour le serveur Yoda AF_XDP
 - Fournit des écritures TLS thread-safe pour éviter la corruption MAC
 - Relie XDP, netstack et eBPF pour le réseau haute performance
 */
-package main
+package core
 
 import (
 	"crypto/rand"
@@ -33,14 +33,14 @@ import (
 // NetstackBridge links XDP, netstack, and TLS components
 // NetstackBridge relie les composants XDP, netstack et TLS
 type NetstackBridge struct {
-	cb        *xdp.ControlBlock // XDP control block / Bloc de contrôle XDP
-	queueID   uint32            // XDP queue ID / Identifiant de file XDP
-	stack     *stack.Stack      // Gvisor netstack / Netstack Gvisor
-	linkEP    *channel.Endpoint // Netstack endpoint / Point de terminaison netstack
-	statsMap  *ebpf.Map         // eBPF stats map / Map eBPF statistiques
-	clientMAC [6]byte           // Fixed-size MAC array / Tableau MAC taille fixe
-	srcMAC    []byte            // Source MAC address / Adresse MAC source
-	tlsMutex  sync.Mutex        // TLS write protection / Protection écriture TLS
+	Cb        *xdp.ControlBlock // XDP control block / Bloc de contrôle XDP
+	QueueID   uint32            // XDP queue ID / Identifiant de file XDP
+	Stack     *stack.Stack      // Gvisor netstack / Netstack Gvisor
+	LinkEP    *channel.Endpoint // Netstack endpoint / Point de terminaison netstack
+	StatsMap  *ebpf.Map         // eBPF stats map / Map eBPF statistiques
+	ClientMAC [6]byte           // Fixed-size MAC array / Tableau MAC taille fixe
+	SrcMAC    []byte            // Source MAC address / Adresse MAC source
+	TlsMutex  sync.Mutex        // TLS write protection / Protection écriture TLS
 }
 
 func generateSelfSignedCert() (tls.Certificate, error) {
@@ -87,8 +87,8 @@ func generateSelfSignedCert() (tls.Certificate, error) {
 // safeTLSWrite writes to TLS connection with mutex and delay to prevent MAC corruption
 // safeTLSWrite écrit sur la connexion TLS avec mutex et délai pour éviter la corruption MAC
 func (b *NetstackBridge) safeTLSWrite(tlsConn *tls.Conn, data []byte) error {
-	b.tlsMutex.Lock()
-	defer b.tlsMutex.Unlock()
+	b.TlsMutex.Lock()
+	defer b.TlsMutex.Unlock()
 
 	_, err := tlsConn.Write(data)
 	if err != nil {

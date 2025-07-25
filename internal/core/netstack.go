@@ -1,6 +1,6 @@
 // gVisor Netstack initialization and TCP/TLS server setup
 // Initialisation du Netstack gVisor et configuration du serveur TCP/TLS
-package main
+package core
 
 import (
 	"crypto/tls"
@@ -21,7 +21,7 @@ import (
 
 // Create and configure the gVisor network stack (NIC, IP, routes)
 // Crée et configure le Netstack gVisor (NIC, IP, routes)
-func createNetstack() (*stack.Stack, *channel.Endpoint) {
+func CreateNetstack() (*stack.Stack, *channel.Endpoint) {
 
 	// Initialize stack with IPv4, TCP, UDP support
 	// Initialise la stack avec support IPv4, TCP, UDP
@@ -71,7 +71,7 @@ func createNetstack() (*stack.Stack, *channel.Endpoint) {
 	return s, linkEP
 }
 
-func (b *NetstackBridge) setupTCPServer() {
+func (b *NetstackBridge) SetupTCPServer() {
 	fmt.Printf("🔧 Setting up TLS PTY Reverse Shell server...\n")
 
 	// Generate self-signed certificate
@@ -96,7 +96,7 @@ func (b *NetstackBridge) setupTCPServer() {
 		ClientAuth:               tls.NoClientCert,
 	}
 
-	fwd := tcp.NewForwarder(b.stack, 0, 256, func(r *tcp.ForwarderRequest) {
+	fwd := tcp.NewForwarder(b.Stack, 0, 256, func(r *tcp.ForwarderRequest) {
 		if r.ID().LocalPort != tcpListenPort {
 			r.Complete(true)
 			return
@@ -124,7 +124,7 @@ func (b *NetstackBridge) setupTCPServer() {
 
 			// CPU Affinity Optimization: Pin TLS session to PTY I/O core
 			if runtime.NumCPU() >= 4 {
-				if err := setCPUAffinity(cpuPTYIO); err != nil {
+				if err := SetCPUAffinity(CpuPTYIO); err != nil {
 					fmt.Printf("⚠️ CPU affinity for PTY I/O failed: %v\n", err)
 				}
 			}
@@ -160,6 +160,6 @@ func (b *NetstackBridge) setupTCPServer() {
 		}()
 	})
 
-	b.stack.SetTransportProtocolHandler(tcp.ProtocolNumber, fwd.HandlePacket)
+	b.Stack.SetTransportProtocolHandler(tcp.ProtocolNumber, fwd.HandlePacket)
 	fmt.Printf("✅ TLS PTY reverse shell server ready\n")
 }
