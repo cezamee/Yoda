@@ -93,6 +93,12 @@ sudo bin/yoda
 
 ### Test
 
+> ⚠️ **Important:**  
+> The client **must** be run from another physical machine on your LAN.  
+> Packets must arrive on the actual physical network interface monitored by XDP.  
+> Traffic from Docker containers, localhost, or most VMs usually does **not** reach the physical NIC and will **not** trigger the XDP program.  
+> For reliable testing, always use a separate physical client machine.
+
 On the client side use yoda cli and enjoy
 ```sh
 ./yoda-client <server_addr:port>
