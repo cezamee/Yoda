@@ -1,6 +1,6 @@
 
 
-# Yoda: eBPF / AF_XDP Network Server with gVisor & TLS PTY SHELL
+# Yoda: Post-exploitation tool using eBPF xdp / AF_XDP, running on a userspace gVisor network stack
 
 > ⚠️ **Disclaimer / Avertissement**
 >
@@ -21,17 +21,18 @@ Yoda is an experimental network server (backdoor ? =P) using AF_XDP, eBPF, and a
 - **Bilingual Comments:** All code is documented in both English and French.
 
 ## File Overview
+- `cmd/cli/main.go` — Yoda client code.
 - `main.go` — Entry point, server orchestration.
 - `af_xdp.go` — AF_XDP queue management, lock-free ring buffers, packet processing.
 - `xdp.go` — XDP program initialization and management.
-- `xdp_redirect.c` — eBPF/XDP C program for packet redirection.
+- `bpf/xdp_redirect.c` — eBPF/XDP C program for packet redirection.
 - `netstack.go` — gVisor netstack setup and TCP/TLS server configuration.
 - `tls.go` / `tls_wrapper.go` — TLS certificate generation, wrappers for gVisor endpoints.
 - `pty.go` — PTY shell session management over TLS.
 - `stats.go` — Real-time statistics and monitoring.
 - `config.go` — Configuration constants (network, CPU, etc).
 - `utils.go` — Utility functions (CPU affinity, NUMA detection).
-- `gen_mac_sig.py` — Python script to generate MAC addresses with custom signatures, or compute the signature of a given MAC address.
+- `tools/gen_mac_sig.py` — Python script to generate MAC addresses with custom signatures, or compute the signature of a given MAC address.
 
 ## Quick Start
 ### Prerequisites & Toolchain
@@ -71,22 +72,30 @@ Before building, edit `config.go` and `xdp_redirect.c` as needed to match your e
 
 Build eBPF xdp prog with:
 ```sh
-make
+make bpf
 ```
 Build Yoda
 ```sh
-go build -o yoda .
+make yoda
+```
+Build Yoda cli
+```sh
+make cli
+```
+Build all
+```sh
+make all
 ```
 ### Run
 ```sh
-sudo ./yoda
+sudo bin/yoda
 ```
 
 ### Test
 
-On the client side use SOCAT and enjoy
+On the client side use yoda cli and enjoy
 ```sh
-socat STDIN,raw,echo=0 OPENSSL:IP:PORT,verify=0
+./yoda-client <server_addr:port>
 ```
 
 ## Usage
@@ -134,8 +143,8 @@ socat STDIN,raw,echo=0 OPENSSL:IP:PORT,verify=0
 
 Yoda uses advanced XDP filtering to select which packets to process:
 
-- **MAC signature filtering (XOR):** The XDP C program (`xdp_redirect.c`) checks for a weak-collision signature on MAC source addresses (XOR over 4 bytes) and configured port. Only packets with a matching MAC signature / port are accepted; others are passed normally to the linux kernel.
-- **Compatible MAC generation:** The Python script `gen_mac_sig.py` generates MAC addresses that match the expected XOR signature for the server or give you the signature of yours.
+- **MAC signature filtering (XOR):** The XDP C program (`bpf/xdp_redirect.c`) checks for a weak-collision signature on MAC source addresses (XOR over 4 bytes) and configured port. Only packets with a matching MAC signature / port are accepted; others are passed normally to the linux kernel.
+- **Compatible MAC generation:** The Python script `tools/gen_mac_sig.py` generates MAC addresses that match the expected XOR signature for the server or give you the signature of yours.
 - **Traffic camouflage:** For example, if Apache is running on port 443, there is no conflict. Yoda does not "bind" the port in the usual sense (it does not use a kernel socket), but receives packets directly from AF_XDP in userspace. Only packets matching Yoda’s XDP filter (MAC/port/signature) are handled by Yoda; all other HTTPS traffic is handled by Apache as usual. This allows Yoda to blend in with legitimate web traffic, enhancing stealth and avoiding detection by standard external monitoring tools.
 
 ## Kernel Bypass & Stealth
@@ -151,10 +160,10 @@ Yoda uses eBPF xdp filter / AF_XDP and gVisor to fully bypass the Linux kernel n
 - Hide the Yoda process and executable from commands like ps, ls, top, etc., by hooking the getdents*() syscalls.
 - Hide XDP mode and XDP program information from appearing in the output of the ip link command.
 sendmsg()? write() ?
-- Add a custom client for improved functionality.
+- ~~Add a custom client for improved functionality.~~
 
 ## License
-This project is provided under the MIT License. See the header in `xdp_redirect.c` for eBPF licensing requirements.
+This project is provided under the MIT License. See the header in `bpf/xdp_redirect.c` for eBPF licensing requirements.
 
 ## Authors
 - Cezame (main developer)

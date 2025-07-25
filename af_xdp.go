@@ -290,7 +290,7 @@ func (b *NetstackBridge) processPacket(packetData []byte) {
 		return
 	}
 
-	if len(packetData) >= ethHeaderSize {
+	if b.clientMAC == [6]byte{} {
 		copy(b.clientMAC[:], packetData[6:12])
 	}
 

@@ -25,7 +25,7 @@ func initializeXDP(interfaceName string) (*ebpf.Collection, *ebpf.Program, *ebpf
 
 	// Load eBPF program from object file
 	// Charge le programme eBPF depuis le fichier objet
-	spec, err := ebpf.LoadCollectionSpec("xdp_redirect.o")
+	spec, err := ebpf.LoadCollectionSpec("bpf/xdp_redirect.o")
 	if err != nil {
 		log.Fatalf("Failed to load eBPF program: %v", err)
 	}

@@ -1,7 +1,7 @@
 # Binaries
 *.o
 *.out
-yoda
+yoda*
 *.exe
 
 # Build and dist folders
