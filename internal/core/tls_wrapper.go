@@ -26,15 +26,18 @@ import (
 // gVisorConn wraps a gVisor endpoint to provide net.Conn interface
 // gVisorConn encapsule un endpoint gVisor pour fournir l'interface net.Conn
 type gVisorConn struct {
-	ep     tcpip.Endpoint // gVisor endpoint / Endpoint gVisor
-	wq     *waiter.Queue  // Waiter queue for notifications / File d'attente pour notifications
-	notify chan struct{}  // Channel for read notifications / Canal de notification lecture
-	done   chan struct{}  // Channel for connection close / Canal pour fermeture connexion
+	ep   tcpip.Endpoint // gVisor endpoint / Endpoint gVisor
+	wq   *waiter.Queue  // Waiter queue for notifications / File d'attente pour notifications
+	done chan struct{}  // Channel for connection close / Canal pour fermeture connexion
 }
 
 // Read implements non-blocking read with notification and timeout
 // Read implémente une lecture non bloquante avec notification et timeout
 func (c *gVisorConn) Read(b []byte) (n int, err error) {
+	waitEntry, readable := waiter.NewChannelEntry(waiter.ReadableEvents)
+	c.wq.EventRegister(&waitEntry)
+	defer c.wq.EventUnregister(&waitEntry)
+
 	for {
 		var buf bytes.Buffer
 		_, tcpErr := c.ep.Read(&buf, tcpip.ReadOptions{})
@@ -46,7 +49,7 @@ func (c *gVisorConn) Read(b []byte) (n int, err error) {
 
 		if tcpErr.String() == "operation would block" {
 			select {
-			case <-c.notify:
+			case <-readable:
 				continue
 			case <-c.done:
 				return 0, io.EOF
@@ -59,9 +62,11 @@ func (c *gVisorConn) Read(b []byte) (n int, err error) {
 	}
 }
 
-// Write implements non-blocking write with exponential backoff retry
-// Write implémente une écriture non bloquante avec retry exponentiel
 func (c *gVisorConn) Write(b []byte) (n int, err error) {
+	waitEntry, writable := waiter.NewChannelEntry(waiter.WritableEvents)
+	c.wq.EventRegister(&waitEntry)
+	defer c.wq.EventUnregister(&waitEntry)
+
 	for retries := 0; retries < 10; retries++ {
 		_, tcpErr := c.ep.Write(bytes.NewReader(b), tcpip.WriteOptions{})
 		if tcpErr == nil {
@@ -69,9 +74,14 @@ func (c *gVisorConn) Write(b []byte) (n int, err error) {
 		}
 
 		if tcpErr.String() == "operation would block" {
-			// Exponential backoff / Attente exponentielle
-			time.Sleep(time.Duration(1<<uint(retries)) * time.Millisecond)
-			continue
+			select {
+			case <-writable:
+				continue
+			case <-c.done:
+				return 0, io.EOF
+			case <-time.After(5 * time.Second):
+				continue
+			}
 		} else {
 			return 0, fmt.Errorf("gVisor write error: %v", tcpErr)
 		}

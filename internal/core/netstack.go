@@ -130,15 +130,14 @@ func (b *NetstackBridge) SetupTCPServer() {
 			}
 
 			// Create TLS wrapper around gVisor endpoint
-			waitEntry, notifyCh := waiter.NewChannelEntry(waiter.ReadableEvents)
+			waitEntry, _ := waiter.NewChannelEntry(waiter.ReadableEvents)
 			wq.EventRegister(&waitEntry)
 			defer wq.EventUnregister(&waitEntry)
 
 			gConn := &gVisorConn{
-				ep:     ep,
-				wq:     &wq,
-				notify: notifyCh,
-				done:   make(chan struct{}),
+				ep:   ep,
+				wq:   &wq,
+				done: make(chan struct{}),
 			}
 
 			// Wrap with TLS

@@ -98,6 +98,6 @@ func (b *NetstackBridge) safeTLSWrite(tlsConn *tls.Conn, data []byte) error {
 	// Small delay to prevent TLS MAC corruption
 	// Petit délai pour éviter la corruption MAC
 	// TODO: Any other way to handle this?
-	time.Sleep(50 * time.Microsecond)
+	time.Sleep(60 * time.Microsecond)
 	return nil
 }

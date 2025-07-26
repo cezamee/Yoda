@@ -168,6 +168,7 @@ type txBatchEntry struct {
 
 var txBatchBuf [txBatchSize]txBatchEntry
 var txBatchCount int
+var lastTXTime time.Time
 
 // flushTXBatch sends all packets in the batch and resets the batch
 func (b *NetstackBridge) flushTXBatch() {
@@ -185,34 +186,36 @@ func (b *NetstackBridge) handleOutboundPackets() {
 	fmt.Printf("🚀 Starting event-driven outbound packet handler...\n")
 
 	ctx := context.Background()
-	flushInterval := 50 * time.Microsecond
-	flushTicker := time.NewTicker(flushInterval)
-	defer flushTicker.Stop()
+	burstThreshold := 50 * time.Microsecond
 
 	for {
-		select {
-		case <-flushTicker.C:
+		pkt := b.LinkEP.ReadContext(ctx)
+		now := time.Now()
+		if pkt == nil {
+			b.flushTXBatch()
+			fmt.Printf("📡 ReadContext returned nil, checking termination...\n")
+			continue
+		}
+
+		data := pkt.ToView().AsSlice()
+
+		if txBatchCount == 0 || lastTXTime.IsZero() || now.Sub(lastTXTime) > burstThreshold {
 			if txBatchCount > 0 {
 				b.flushTXBatch()
 			}
-		default:
-			pkt := b.LinkEP.ReadContext(ctx)
-			if pkt == nil {
-				// Flush any remaining batch on end-of-stream or idle
-				b.flushTXBatch()
-				fmt.Printf("📡 ReadContext returned nil, checking termination...\n")
-				continue
-			}
-
-			data := pkt.ToView().AsSlice()
-			// Add to batch
-			txBatchBuf[txBatchCount] = txBatchEntry{data: data}
-			txBatchCount++
-			if txBatchCount >= txBatchSize {
-				b.flushTXBatch()
-			}
+			b.sendPacketTX(data)
+			lastTXTime = now
 			pkt.DecRef()
+			continue
 		}
+
+		txBatchBuf[txBatchCount] = txBatchEntry{data: data}
+		txBatchCount++
+		lastTXTime = now
+		if txBatchCount >= txBatchSize {
+			b.flushTXBatch()
+		}
+		pkt.DecRef()
 	}
 }
 
