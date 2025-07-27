@@ -28,8 +28,6 @@ func SetCPUAffinity(cpuCore int) error {
 	if err := unix.SchedSetaffinity(tid, &cpuSet); err != nil {
 		return fmt.Errorf("failed to set CPU affinity to core %d: %v", cpuCore, err)
 	}
-
-	fmt.Printf("🎯 Pinned goroutine to CPU core %d (TID: %d)\n", cpuCore, tid)
 	return nil
 }
 
@@ -37,14 +35,13 @@ func SetCPUAffinity(cpuCore int) error {
 // Détecte la topologie NUMA et fournit des informations de base
 func DetectNUMATopology() {
 	numCPU := runtime.NumCPU()
-	fmt.Printf("🔍 System topology: %d CPU cores detected\n", numCPU)
 
 	if numCPU >= 4 {
-		fmt.Printf("✅ CPU affinity optimization: Ideal configuration (4+ cores)\n")
-		fmt.Printf("   - Core %d: RX processing\n", CpuRXProcessing)
-		fmt.Printf("   - Core %d: TX processing\n", CpuTXProcessing)
-		fmt.Printf("   - Core %d: TLS crypto\n", CpuTLSCrypto)
-		fmt.Printf("   - Core %d: PTY I/O\n", CpuPTYIO)
+		//fmt.Printf("✅ CPU affinity optimization: Ideal configuration (4+ cores)\n")
+		//fmt.Printf("   - Core %d: RX processing\n", CpuRXProcessing)
+		//fmt.Printf("   - Core %d: TX processing\n", CpuTXProcessing)
+		//fmt.Printf("   - Core %d: TLS crypto\n", CpuTLSCrypto)
+		//fmt.Printf("   - Core %d: PTY I/O\n", CpuPTYIO)
 	} else if numCPU >= 2 {
 		fmt.Printf("⚠️ CPU affinity optimization: Limited cores (%d), may have contention\n", numCPU)
 	} else {

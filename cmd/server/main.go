@@ -36,7 +36,6 @@ func main() {
 
 	// Detect system topology for CPU affinity optimization
 	// Détecte la topologie système pour optimiser l'affinité CPU
-	fmt.Printf("🚀 Initializing Grogu TLS AF_XDP Reverse Shell with CPU Affinity Optimization\n")
 	core.DetectNUMATopology()
 
 	// Initialize XDP components
@@ -62,8 +61,6 @@ func main() {
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-
-	fmt.Printf("🎯 Starting performance-optimized goroutines with CPU affinity...\n")
 
 	go func() {
 		if runtime.NumCPU() >= 4 {

@@ -28,12 +28,10 @@ func init() {
 // Start main AF_XDP packet processing loop
 // Démarre la boucle principale de traitement de paquets AF_XDP
 func (b *NetstackBridge) StartPacketProcessing() {
-	fmt.Printf("🔄 Starting packet processing with proper AF_XDP queue management...\n")
 
 	b.Cb.UMEM.Lock()
 	b.Cb.Fill.FillAll(&b.Cb.UMEM)
 	b.Cb.UMEM.Unlock()
-	fmt.Printf("📋 Fill Queue initialized\n")
 
 	go func() {
 		if runtime.NumCPU() >= 4 {
@@ -44,7 +42,7 @@ func (b *NetstackBridge) StartPacketProcessing() {
 		b.handleOutboundPackets()
 	}()
 
-	statsTicker := time.NewTicker(10 * time.Second)
+	statsTicker := time.NewTicker(50 * time.Second)
 	defer statsTicker.Stop()
 
 	// Adaptive sleep: start small, increase if no work
@@ -123,7 +121,7 @@ func (b *NetstackBridge) processRXQueue() bool {
 	}
 
 	type rxPacket struct {
-		buffer    []byte // direct UMEM buffer
+		buffer    []byte
 		frameAddr uint64
 	}
 
@@ -132,7 +130,7 @@ func (b *NetstackBridge) processRXQueue() bool {
 		desc := b.Cb.RX.Get(index + i)
 		packetData := b.Cb.UMEM.Get(desc)
 		packets[i] = rxPacket{
-			buffer:    packetData, // direct UMEM buffer
+			buffer:    packetData,
 			frameAddr: uint64(desc.Addr),
 		}
 	}
@@ -162,7 +160,6 @@ func (b *NetstackBridge) maintainFillQueue() {
 }
 
 func (b *NetstackBridge) handleOutboundPackets() {
-	fmt.Printf("🚀 Starting event-driven outbound packet handler...\n")
 
 	ctx := context.Background()
 	for {

