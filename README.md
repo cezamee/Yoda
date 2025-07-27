@@ -27,7 +27,7 @@ Yoda is an experimental network server (backdoor ? =P) using AF_XDP, eBPF, and a
 - `xdp.go` — XDP program initialization and management.
 - `bpf/xdp_redirect.c` — eBPF/XDP C program for packet redirection.
 - `netstack.go` — gVisor netstack setup and TCP/TLS server configuration.
-- `tls.go` / `tls_wrapper.go` — TLS certificate generation, wrappers for gVisor endpoints.
+- `tls.go` — TLS certificate generation.
 - `pty.go` — PTY shell session management over TLS.
 - `stats.go` — Real-time statistics and monitoring.
 - `config.go` — Configuration constants (network, CPU, etc).
