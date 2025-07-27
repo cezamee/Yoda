@@ -21,7 +21,6 @@ import (
 	"encoding/pem"
 	"math/big"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/cilium/ebpf"
@@ -40,7 +39,6 @@ type NetstackBridge struct {
 	StatsMap  *ebpf.Map         // eBPF stats map / Map eBPF statistiques
 	ClientMAC [6]byte           // Fixed-size MAC array / Tableau MAC taille fixe
 	SrcMAC    []byte            // Source MAC address / Adresse MAC source
-	TlsMutex  sync.Mutex        // TLS write protection / Protection écriture TLS
 }
 
 func generateSelfSignedCert() (tls.Certificate, error) {
@@ -82,22 +80,4 @@ func generateSelfSignedCert() (tls.Certificate, error) {
 	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
 
 	return tls.X509KeyPair(certPEM, keyPEM)
-}
-
-// safeTLSWrite writes to TLS connection with mutex and delay to prevent MAC corruption
-// safeTLSWrite écrit sur la connexion TLS avec mutex et délai pour éviter la corruption MAC
-func (b *NetstackBridge) safeTLSWrite(tlsConn *tls.Conn, data []byte) error {
-	b.TlsMutex.Lock()
-	defer b.TlsMutex.Unlock()
-
-	_, err := tlsConn.Write(data)
-	if err != nil {
-		return err
-	}
-
-	// Small delay to prevent TLS MAC corruption
-	// Petit délai pour éviter la corruption MAC
-	// TODO: Any other way to handle this?
-	time.Sleep(60 * time.Microsecond)
-	return nil
 }

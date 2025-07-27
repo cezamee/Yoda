@@ -10,6 +10,7 @@ import (
 	"runtime"
 
 	"gvisor.dev/gvisor/pkg/tcpip"
+	"gvisor.dev/gvisor/pkg/tcpip/adapters/gonet"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/link/channel"
 	"gvisor.dev/gvisor/pkg/tcpip/network/ipv4"
@@ -129,32 +130,21 @@ func (b *NetstackBridge) SetupTCPServer() {
 				}
 			}
 
-			// Create TLS wrapper around gVisor endpoint
-			waitEntry, _ := waiter.NewChannelEntry(waiter.ReadableEvents)
-			wq.EventRegister(&waitEntry)
-			defer wq.EventUnregister(&waitEntry)
+			// Utilise gonet pour exposer ep comme net.Conn
+			gonetConn := gonet.NewTCPConn(&wq, ep)
 
-			gConn := &gVisorConn{
-				ep:   ep,
-				wq:   &wq,
-				done: make(chan struct{}),
-			}
+			tlsConn := tls.Server(gonetConn, tlsConfig)
 
-			// Wrap with TLS
-			tlsConn := tls.Server(gConn, tlsConfig)
-
-			// Perform TLS handshake
 			fmt.Printf("🔐 Starting TLS handshake for %s...\n", sessionKey)
 			err := tlsConn.Handshake()
 			if err != nil {
 				fmt.Printf("❌ TLS handshake failed for %s: %v\n", sessionKey, err)
-				gConn.Close()
+				gonetConn.Close()
 				return
 			}
 
 			fmt.Printf("✅ TLS connection established for %s\n", sessionKey)
 
-			// Create a full PTY session with TLS
 			b.handleTLSPTYSession(tlsConn, sessionKey)
 		}()
 	})

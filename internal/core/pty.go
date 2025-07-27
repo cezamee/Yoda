@@ -70,8 +70,7 @@ func (b *NetstackBridge) handleTLSPTYSession(tlsConn *tls.Conn, _ string) {
 	go func() {
 		// Send ANSI query for cursor position (ESC[6n)
 		// Envoie la requête ANSI pour la position du curseur
-		err := b.safeTLSWrite(tlsConn, []byte("\033[999;999H\033[6n"))
-		if err != nil {
+		if _, err := tlsConn.Write([]byte("\033[999;999H\033[6n")); err != nil {
 			fmt.Printf("⚠️ Failed to send terminal size query via TLS: %v\n", err)
 			queryResponse <- [2]int{rows, cols} // Use defaults
 			return
@@ -203,7 +202,7 @@ func (b *NetstackBridge) handleTLSPTYSession(tlsConn *tls.Conn, _ string) {
 				if n > 0 {
 					data := buffer[:n]
 
-					b.safeTLSWrite(tlsConn, data)
+					_, _ = tlsConn.Write(data)
 				}
 			}
 		}
