@@ -62,7 +62,7 @@ func CreateNetstack() (*stack.Stack, *channel.Endpoint) {
 	s.SetRouteTable([]tcpip.Route{
 		{
 			Destination: header.IPv4EmptySubnet,
-			Gateway:     tcpip.AddrFromSlice(net.ParseIP("192.168.0.1").To4()),
+			Gateway:     tcpip.AddrFromSlice(net.ParseIP(netGateway).To4()),
 			NIC:         netNicID,
 		},
 	})
@@ -130,7 +130,6 @@ func (b *NetstackBridge) SetupTCPServer() {
 				}
 			}
 
-			// Utilise gonet pour exposer ep comme net.Conn
 			gonetConn := gonet.NewTCPConn(&wq, ep)
 
 			tlsConn := tls.Server(gonetConn, tlsConfig)

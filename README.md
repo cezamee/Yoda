@@ -12,12 +12,14 @@
 ## Description
 Yoda is an experimental network server (backdoor ? =P) using AF_XDP, eBPF, and a full userspace network stack (gVisor netstack) to explore low-level packet processing, TLS PTY shell access, and resource management on modern Linux systems. All networking (TCP/IP) is handled outside the Linux kernel, entirely in userspace. The codebase is documented in both English and French for clarity and maintainability. Performance and security are not guaranteed—this project is for research, learning, and demonstration purposes.
 
+
 ## Features
 - **AF_XDP Packet I/O:** Lock-free ring buffer, optimized packet processing (best effort, experimental).
 - **eBPF/XDP Integration:** Custom XDP programs for MAC-based signature/port filtering and redirection.
 - **gVisor Netstack:** User-space TCP/IP stack for isolation, protocol experimentation, and full bypass of the Linux kernel network stack.
 - **TLS PTY Shell:** Remote shell access over TLS with dynamic terminal sizing (for demo/testing only).
 - **Resource Management:** CPU affinity, buffer pools, and adaptive sleep for efficient resource usage.
+- **Process & Binary Hiding:** Yoda hides its own PIDs and binary file from `/proc` directory listings and tools like `ls`, `ps`, `top`, etc., by hooking the `getdents64` syscall with eBPF. This makes the process and its executable invisible to standard process and file enumeration on the system.
 - **Bilingual Comments:** All code is documented in both English and French.
 
 ## File Overview
@@ -26,10 +28,12 @@ Yoda is an experimental network server (backdoor ? =P) using AF_XDP, eBPF, and a
 - `af_xdp.go` — AF_XDP queue management, lock-free ring buffers, packet processing.
 - `xdp.go` — XDP program initialization and management.
 - `bpf/xdp_redirect.c` — eBPF/XDP C program for packet redirection.
+- `bpf/getdents.c` — eBPF program to hide PIDs and binaries from process listings.
 - `netstack.go` — gVisor netstack setup and TCP/TLS server configuration.
 - `tls.go` — TLS certificate generation.
 - `pty.go` — PTY shell session management over TLS.
 - `stats.go` — Real-time statistics and monitoring.
+- `hidde.go` — eBPF init and logic for hiding Yoda’s PIDs and binary from /proc and process listings
 - `config.go` — Configuration constants (network, CPU, etc).
 - `utils.go` — Utility functions (CPU affinity, NUMA detection).
 - `tools/gen_mac_sig.py` — Python script to generate MAC addresses with custom signatures, or compute the signature of a given MAC address.
@@ -153,20 +157,23 @@ Yoda uses advanced XDP filtering to select which packets to process:
 - **Compatible MAC generation:** The Python script `tools/gen_mac_sig.py` generates MAC addresses that match the expected XOR signature for the server or give you the signature of yours.
 - **Traffic camouflage:** For example, if Apache is running on port 443, there is no conflict. Yoda does not "bind" the port in the usual sense (it does not use a kernel socket), but receives packets directly from AF_XDP in userspace. Only packets matching Yoda’s XDP filter (MAC/port/signature) are handled by Yoda; all other HTTPS traffic is handled by Apache as usual. This allows Yoda to blend in with legitimate web traffic, enhancing stealth and avoiding detection by standard external monitoring tools.
 
-## Kernel Bypass & Stealth
 
-Yoda uses eBPF xdp filter / AF_XDP and gVisor to fully bypass the Linux kernel network stack:
+## Kernel Bypass, Stealth & Self-Hiding
+
+Yoda uses eBPF xdp filter / AF_XDP and gVisor to fully bypass the Linux kernel network stack, and also hides itself from process and file listings:
 
 - **Kernel Bypass:** Packets are processed directly in userspace, never entering the kernel TCP/IP stack.
 - **No visible connections:** Connections do not appear in `netstat`, `ss`, or `lsof` because they are not tracked by the kernel.
 - **Firewall/tcpdump bypass:** Packets handled by Yoda bypass all firewalls (Netfilter/iptables) and are not visible to tcpdump or other standard monitoring tools on the interface. 
+- **Process & Binary Hiding:** Yoda uses an eBPF hook on the `getdents64` syscall to hide its own PIDs and binary name from `/proc` and process listings. This means the process and its executable will not appear in `ls`, `ps`, `top`, or similar tools, making detection much harder.
 - **Advanced stealth:** Perfect for scenarios requiring maximum network discretion.. =P.
 
 ## TODO
-- Hide the Yoda process and executable from commands like ps, ls, top, etc., by hooking the getdents*() syscalls.
+- ~~Hide the Yoda process and executable from commands like ps, ls, top, etc., by hooking the getdents*() syscalls.~~
 - Hide XDP mode and XDP program information from appearing in the output of the ip link command.
 sendmsg()? write() ?
 - ~~Add a custom client for improved functionality.~~
+- Suppress or hide kernel warnings related to bpf_probe_write_user in dmesg and other system logs. 
 
 ## License
 This project is provided under the MIT License. See the header in `bpf/xdp_redirect.c` for eBPF licensing requirements.

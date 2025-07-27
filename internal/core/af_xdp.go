@@ -50,7 +50,7 @@ func (b *NetstackBridge) StartPacketProcessing() {
 	// Adaptive sleep: start small, increase if no work
 	// Sommeil adaptatif : commence court, augmente si pas de travail
 	sleepDuration := 10 * time.Microsecond
-	maxSleep := 100 * time.Microsecond
+	maxSleep := 50 * time.Microsecond
 
 	// Main processing loop with proper queue management
 	// Boucle principale de traitement avec gestion correcte des files
@@ -161,60 +161,18 @@ func (b *NetstackBridge) maintainFillQueue() {
 	b.Cb.UMEM.Unlock()
 }
 
-// --- TX Batch definitions ---
-type txBatchEntry struct {
-	data []byte
-}
-
-var txBatchBuf [txBatchSize]txBatchEntry
-var txBatchCount int
-var lastTXTime time.Time
-
-// flushTXBatch sends all packets in the batch and resets the batch
-func (b *NetstackBridge) flushTXBatch() {
-	if txBatchCount == 0 {
-		return
-	}
-	for i := 0; i < txBatchCount; i++ {
-		b.sendPacketTX(txBatchBuf[i].data)
-		txBatchBuf[i].data = nil
-	}
-	txBatchCount = 0
-}
-
 func (b *NetstackBridge) handleOutboundPackets() {
 	fmt.Printf("🚀 Starting event-driven outbound packet handler...\n")
 
 	ctx := context.Background()
-	burstThreshold := 50 * time.Microsecond
-
 	for {
 		pkt := b.LinkEP.ReadContext(ctx)
-		now := time.Now()
 		if pkt == nil {
-			b.flushTXBatch()
 			fmt.Printf("📡 ReadContext returned nil, checking termination...\n")
 			continue
 		}
-
 		data := pkt.ToView().AsSlice()
-
-		if txBatchCount == 0 || lastTXTime.IsZero() || now.Sub(lastTXTime) > burstThreshold {
-			if txBatchCount > 0 {
-				b.flushTXBatch()
-			}
-			b.sendPacketTX(data)
-			lastTXTime = now
-			pkt.DecRef()
-			continue
-		}
-
-		txBatchBuf[txBatchCount] = txBatchEntry{data: data}
-		txBatchCount++
-		lastTXTime = now
-		if txBatchCount >= txBatchSize {
-			b.flushTXBatch()
-		}
+		b.sendPacketTX(data)
 		pkt.DecRef()
 	}
 }

