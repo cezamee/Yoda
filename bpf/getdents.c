@@ -1,4 +1,6 @@
+// Inspired by https://github.com/Acceis/eBPF-hide-PID — thanks <3
 //go:build ignore
+
 #include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
