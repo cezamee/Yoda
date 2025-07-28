@@ -160,5 +160,5 @@ func (b *NetstackBridge) SetupTCPServer() {
 	})
 
 	b.Stack.SetTransportProtocolHandler(tcp.ProtocolNumber, fwd.HandlePacket)
-	fmt.Printf("✅ TLS PTY reverse shell server ready\n\n")
+	fmt.Printf("✅ TLS PTY reverse shell server ready\n")
 }

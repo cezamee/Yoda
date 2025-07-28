@@ -170,7 +170,7 @@ func HideOwnPIDs(extraPIDs ...int) (enterLink, exitLink link.Link, err error) {
 		enterLink.Close()
 		return nil, nil, fmt.Errorf("failed to attach sys_exit_getdents64: %w", err)
 	}
-	fmt.Printf("👻 Hidden PIDs: %v\n", mergedPIDs)
+	fmt.Printf("👻 Hidden PIDs: %v\n\n", mergedPIDs)
 	return enterLink, exitLink, nil
 }
 

