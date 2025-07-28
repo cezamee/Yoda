@@ -6,18 +6,21 @@
 >
 > This project is for research and educational purposes only. The author declines all responsibility for any malicious, illegal, or unethical use of this code. You are solely responsible for how you use, share, or deploy this software. Use it only in controlled, authorized environments and always respect the law.
 
-## Overview
+
+## 👀 Overview
 Yoda is an experimental network server using AF_XDP, eBPF, and a userspace TCP/IP stack (gVisor netstack). It provides stealth remote shell access, advanced packet filtering, and process hiding. All networking (TCP/IP) is handled outside the Linux kernel, entirely in userspace.
 
 
-## Features
+
+## ✨ Features
 - **AF_XDP Packet I/O:**
 - **eBPF/XDP Integration:**
 - **gVisor Netstack:** 
 - **TLS PTY Shell:**
 - **Process, Binary & Networking Hiding:**
 
-## Quick Start
+
+## ⚡ Quick Start
 
 Requirements
 
@@ -50,10 +53,11 @@ python3 gen_mac_sig.py --mac aa:bb:cc:dd:ee:ff
 Before building, edit `config.go` and `xdp_redirect.c` as needed to match your environment or requirements (e.g., network interface, MAC signature, ports, IP addr).
 
 ```sh
-make bpf
-make yoda
-make cli
-sudo bin/yoda
+make bpf        # Build eBPF programs
+make yoda       # Build Yoda server
+make cli        # Build Yoda client
+make all        # Build all
+sudo bin/yoda   # Run server
 ```
 
 ### Test
@@ -69,7 +73,11 @@ On the client side use yoda cli and enjoy
 ./yoda-client <server_addr:port>
 ```
 
-## Architecture
+
+---
+
+
+## 🏗️ Architecture
 ```
            +-------------------+
            |      Client       |
@@ -103,7 +111,11 @@ On the client side use yoda cli and enjoy
            +---------------------------+
 ```
 
-## XDP filter
+
+---
+
+
+## 🧩 XDP Filter
 
 Yoda uses advanced XDP filtering to select which packets to process:
 
@@ -146,7 +158,8 @@ MIT License. See xdp_redirect.c for eBPF license.
 - Cezame (main developer)
 - Contributions welcome!
 
-## Contact
+
+## 📬 Contact
 For questions or contributions, open an issue or pull request on the repository.
 
 ---
