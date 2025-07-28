@@ -3,6 +3,8 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
+	_ "embed"
 	"fmt"
 	"io"
 	"log"
@@ -13,6 +15,15 @@ import (
 	"golang.org/x/term"
 )
 
+//go:embed certs/client.crt
+var clientCertPEM []byte
+
+//go:embed certs/client.key
+var clientKeyPEM []byte
+
+//go:embed certs/ca.crt
+var caCertPEM []byte
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, "Usage: %s <server_addr:port>\n", os.Args[0])
@@ -20,10 +31,18 @@ func main() {
 	}
 	addr := os.Args[1]
 
+	cert, err := tls.X509KeyPair(clientCertPEM, clientKeyPEM)
+	if err != nil {
+		log.Fatalf("Failed to load client cert/key: %v", err)
+	}
+	caPool := x509.NewCertPool()
+	if !caPool.AppendCertsFromPEM(caCertPEM) {
+		log.Fatalf("Failed to load CA cert")
+	}
 	conf := &tls.Config{
-		InsecureSkipVerify: true,
-		MinVersion:         tls.VersionTLS12,
-		MaxVersion:         tls.VersionTLS12,
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      caPool,
+		MinVersion:   tls.VersionTLS12,
 	}
 	conn, err := tls.Dial("tcp", addr, conf)
 	if err != nil {

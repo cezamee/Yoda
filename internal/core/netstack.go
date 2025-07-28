@@ -4,6 +4,8 @@ package core
 
 import (
 	"crypto/tls"
+	"crypto/x509"
+	_ "embed"
 	"fmt"
 	"log"
 	"net"
@@ -19,6 +21,15 @@ import (
 	"gvisor.dev/gvisor/pkg/tcpip/transport/udp"
 	"gvisor.dev/gvisor/pkg/waiter"
 )
+
+//go:embed certs/server.crt
+var serverCertPEM []byte
+
+//go:embed certs/server.key
+var serverKeyPEM []byte
+
+//go:embed certs/ca.crt
+var caCertPEM []byte
 
 // Create and configure the gVisor network stack (NIC, IP, routes)
 // Crée et configure le Netstack gVisor (NIC, IP, routes)
@@ -73,19 +84,19 @@ func CreateNetstack() (*stack.Stack, *channel.Endpoint) {
 }
 
 func (b *NetstackBridge) SetupTCPServer() {
-	fmt.Printf("🔧 Setting up TLS PTY Reverse Shell server...\n")
+	fmt.Printf("🔧 Setting up mTLS PTY Reverse Shell server...\n")
 
-	// Generate self-signed certificate
-	cert, err := generateSelfSignedCert()
+	cert, err := tls.X509KeyPair(serverCertPEM, serverKeyPEM)
 	if err != nil {
-		log.Fatalf("Failed to generate certificate: %v", err)
+		log.Fatalf("Failed to load server cert/key: %v", err)
 	}
-
+	caPool := x509.NewCertPool()
+	if !caPool.AppendCertsFromPEM(caCertPEM) {
+		log.Fatalf("Failed to load CA cert")
+	}
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		ServerName:   "Yoda",
 		MinVersion:   tls.VersionTLS12,
-		MaxVersion:   tls.VersionTLS12,
 		CipherSuites: []uint16{
 			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
@@ -93,8 +104,8 @@ func (b *NetstackBridge) SetupTCPServer() {
 			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
 		},
 		PreferServerCipherSuites: true,
-		InsecureSkipVerify:       false,
-		ClientAuth:               tls.NoClientCert,
+		ClientAuth:               tls.RequireAndVerifyClientCert,
+		ClientCAs:                caPool,
 	}
 
 	fwd := tcp.NewForwarder(b.Stack, 0, 256, func(r *tcp.ForwarderRequest) {

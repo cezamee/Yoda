@@ -11,9 +11,16 @@ GO ?= go
 YODA_BIN = yoda
 CLI_BIN = yoda-client
 
-.PHONY: all yoda cli bpf clean
+
+.PHONY: all yoda cli bpf clean cert
+
 
 all: yoda cli bpf
+
+CERT_IP ?= 127.0.0.1
+
+cert:
+	$(GO) run tools/gen_certs.go $(CERT_IP)
 
 yoda:
 	cd cmd/server && $(GO) build -o ../../bin/$(YODA_BIN)

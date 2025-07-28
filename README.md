@@ -16,7 +16,7 @@ Yoda is an experimental network server using AF_XDP, eBPF, and a userspace TCP/I
 - **AF_XDP Packet I/O**
 - **eBPF/XDP Integration**
 - **gVisor Netstack** 
-- **TLS PTY Shell**
+- **mTLS PTY Shell**
 - **Process, Binary & Networking Hiding**
 
 
@@ -53,6 +53,9 @@ python3 gen_mac_sig.py --mac aa:bb:cc:dd:ee:ff
 Before building, edit `config.go` and `xdp_redirect.c` as needed to match your environment or requirements (e.g., network interface, MAC signature, ports, IP addr).
 
 ```sh
+# First generate mtls certs for cli & yoda
+make cert CERT_IP=IP_OF_YODA_SERV # Same ip as netLocalIP in config.go
+
 make bpf        # Build eBPF programs
 make yoda       # Build Yoda server
 make cli        # Build Yoda client
