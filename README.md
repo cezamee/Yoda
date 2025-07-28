@@ -13,11 +13,11 @@ Yoda is an experimental network server using AF_XDP, eBPF, and a userspace TCP/I
 
 
 ## ✨ Features
-- **AF_XDP Packet I/O:**
-- **eBPF/XDP Integration:**
-- **gVisor Netstack:** 
-- **TLS PTY Shell:**
-- **Process, Binary & Networking Hiding:**
+- **AF_XDP Packet I/O**
+- **eBPF/XDP Integration**
+- **gVisor Netstack** 
+- **TLS PTY Shell**
+- **Process, Binary & Networking Hiding**
 
 
 ## ⚡ Quick Start
