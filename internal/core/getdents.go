@@ -2,6 +2,8 @@
 package core
 
 import (
+	"bytes"
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +13,9 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 )
+
+//go:embed obj/getdents.o
+var getDentsObj []byte
 
 const (
 	BpfObjPath = "bpf/getdents.o"
@@ -77,7 +82,7 @@ func getBinaryName() (string, error) {
 
 // loadGetdentsBPF loads the getdents.o eBPF object file and returns the collection.
 func loadGetdentsBPF() (*ebpf.Collection, error) {
-	spec, err := ebpf.LoadCollectionSpec(BpfObjPath)
+	spec, err := ebpf.LoadCollectionSpecFromReader(bytes.NewReader(getDentsObj))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load BPF spec: %w", err)
 	}

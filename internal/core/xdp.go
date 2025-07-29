@@ -3,6 +3,8 @@
 package core
 
 import (
+	"bytes"
+	_ "embed"
 	"log"
 	"net"
 
@@ -10,6 +12,9 @@ import (
 	"github.com/cilium/ebpf/link"
 	"gvisor.dev/gvisor/pkg/xdp"
 )
+
+//go:embed obj/xdp_redirect.o
+var xdpObj []byte
 
 // initializeXDP loads and configures all XDP components for the given interface
 // initializeXDP charge et configure tous les composants XDP pour l'interface donnée
@@ -25,7 +30,7 @@ func InitializeXDP(interfaceName string) (*ebpf.Collection, *ebpf.Program, *ebpf
 
 	// Load eBPF program from object file
 	// Charge le programme eBPF depuis le fichier objet
-	spec, err := ebpf.LoadCollectionSpec("bpf/xdp_redirect.o")
+	spec, err := ebpf.LoadCollectionSpecFromReader(bytes.NewReader(xdpObj))
 	if err != nil {
 		log.Fatalf("Failed to load eBPF program: %v", err)
 	}
