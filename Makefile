@@ -23,10 +23,10 @@ cert:
 	$(GO) run tools/gen_certs.go $(CERT_IP)
 
 yoda:
-	cd cmd/server && $(GO) build -o ../../bin/$(YODA_BIN)
+	cd cmd/server && $(GO) build -ldflags="-s -w" -o ../../bin/$(YODA_BIN)
 
 cli:
-	cd cmd/cli && $(GO) build -o ../../bin/$(CLI_BIN)
+	cd cmd/cli && $(GO) build -ldflags="-s -w" -o ../../bin/$(CLI_BIN)
 
 
 bpf: $(BPF_OBJS)
