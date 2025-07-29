@@ -11,6 +11,7 @@ import (
 	"net"
 	"runtime"
 
+	"github.com/cilium/ebpf"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/adapters/gonet"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
@@ -20,6 +21,7 @@ import (
 	"gvisor.dev/gvisor/pkg/tcpip/transport/tcp"
 	"gvisor.dev/gvisor/pkg/tcpip/transport/udp"
 	"gvisor.dev/gvisor/pkg/waiter"
+	"gvisor.dev/gvisor/pkg/xdp"
 )
 
 //go:embed certs/server.crt
@@ -30,6 +32,18 @@ var serverKeyPEM []byte
 
 //go:embed certs/ca.crt
 var caCertPEM []byte
+
+// NetstackBridge links XDP, netstack, and TLS components
+// NetstackBridge relie les composants XDP, netstack et TLS
+type NetstackBridge struct {
+	Cb        *xdp.ControlBlock // XDP control block / Bloc de contrôle XDP
+	QueueID   uint32            // XDP queue ID / Identifiant de file XDP
+	Stack     *stack.Stack      // Gvisor netstack / Netstack Gvisor
+	LinkEP    *channel.Endpoint // Netstack endpoint / Point de terminaison netstack
+	StatsMap  *ebpf.Map         // eBPF stats map / Map eBPF statistiques
+	ClientMAC [6]byte           // Fixed-size MAC array / Tableau MAC taille fixe
+	SrcMAC    []byte            // Source MAC address / Adresse MAC source
+}
 
 // Create and configure the gVisor network stack (NIC, IP, routes)
 // Crée et configure le Netstack gVisor (NIC, IP, routes)
