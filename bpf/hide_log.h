@@ -3,7 +3,7 @@
 #include <bpf/bpf_helpers.h>
 
 #define MAX_BUF 200
-#define MAX_PATTERNS 2
+#define MAX_PATTERNS 3
 #define MAX_PATTERN_LEN 32
 #define PATCH_KEY 0
 #define MAX_COMMANDS 3
@@ -22,7 +22,7 @@ typedef struct {
 // You can add more patterns here
 const StaticPattern patterns[MAX_PATTERNS] = {
     { "bpf_", sizeof("bpf_") - 1 },
-    { "prog", sizeof("prog") - 1 }
+    { "/xdp", sizeof("/xdp") - 1 }
 };
 
 // Commands to monitor
