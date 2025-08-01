@@ -35,6 +35,14 @@ static __always_inline int match_hidden_entry(u32 i, void *data) {
       return 0;
    int max_len = entry->name_len < MAX_NAME_LEN ? entry->name_len : MAX_NAME_LEN;
    int j;
+   if (entry->is_prefix) {
+      for (j = 0; j < max_len; j++) {
+         if (ctx->name[j] != entry->name[j])
+            return 0;
+      }
+      ctx->found = true;
+      return 1;
+   }
    for (j = 0; j < max_len; j++) {
       if (ctx->name[j] != entry->name[j])
          return 0;

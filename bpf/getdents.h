@@ -3,9 +3,10 @@
 #define MAX_DIRENTS 5000
 #define MAX_HIDDEN 16
 
-typedef struct {
-   __u8 name[MAX_NAME_LEN];
-   int name_len;
+typedef struct __attribute__((packed)) {
+   __u8 name[100];
+   int32_t name_len;
+   uint8_t is_prefix;
 } hidden_entry_t;
 
 typedef struct {

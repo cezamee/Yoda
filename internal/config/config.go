@@ -6,6 +6,9 @@ import (
 	"gvisor.dev/gvisor/pkg/tcpip"
 )
 
+// File or directory name prefixes to hide
+var HiddenPrefixes = []string{"secret_", "hidden_"}
+
 const (
 	// Network interface and IP configuration
 	// Configuration de l'interface réseau et IP
