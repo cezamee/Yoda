@@ -11,7 +11,7 @@
 #define ETH_P_IP 0x0800
 #define IPPROTO_TCP 6
 #define IPPROTO_UDP 17
-#define MAC_SIG 0x1814
+#define MAC_SIG 0x3607
 #define PORT_TCP_FILTER 443
 
 // Map to store AF_XDP socket configuration (CO-RE format)

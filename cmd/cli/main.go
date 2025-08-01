@@ -46,6 +46,7 @@ func main() {
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      caPool,
 		MinVersion:   tls.VersionTLS12,
+		NextProtos:   []string{"h2"},
 	})
 
 	grpcConn, err := grpc.NewClient(addr,

@@ -9,12 +9,10 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"net/http"
 
 	cfg "github.com/cezamee/Yoda/internal/config"
 	"github.com/cezamee/Yoda/internal/core/pb"
 
-	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 
 	"github.com/cilium/ebpf"
@@ -118,12 +116,19 @@ func (l *loggingTLSListener) Accept() (net.Conn, error) {
 
 type loggingConn struct {
 	net.Conn
+	closed bool
 }
 
 func (c *loggingConn) Close() error {
-	remoteAddr := c.RemoteAddr()
-	fmt.Printf("[gRPC] Connection closed from %s\n", remoteAddr)
+	if !c.closed {
+
+		c.closed = true
+		remoteAddr := c.RemoteAddr()
+		fmt.Printf("[gRPC] Connection closed from %s\n", remoteAddr)
+		c.closed = true
+	}
 	return c.Conn.Close()
+
 }
 
 func (b *NetstackBridge) SetupGRPCServer() {
@@ -148,6 +153,7 @@ func (b *NetstackBridge) SetupGRPCServer() {
 		PreferServerCipherSuites: true,
 		ClientAuth:               tls.RequireAndVerifyClientCert,
 		ClientCAs:                caPool,
+		NextProtos:               []string{"h2"},
 	}
 
 	ln, err := gonet.ListenTCP(b.Stack, tcpip.FullAddress{
@@ -166,21 +172,9 @@ func (b *NetstackBridge) SetupGRPCServer() {
 	// Register gRPC services
 	pb.RegisterPTYShellServer(grpcServer, &PTYShellServerImpl{Bridge: b})
 
-	http2Server := &http2.Server{}
-	httpServer := &http.Server{
-		TLSConfig: tlsConfig,
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			grpcServer.ServeHTTP(w, r)
-		}),
-	}
-
-	if err := http2.ConfigureServer(httpServer, http2Server); err != nil {
-		log.Fatalf("Failed to configure HTTP/2: %v", err)
-	}
-
 	fmt.Printf("✅ [gRPC] ready on %s:%d (mTLS)\n", cfg.NetLocalIP, cfg.TcpListenPort)
-	if err := httpServer.Serve(tlsListener); err != nil {
-		log.Fatalf("HTTP/2 gRPC server error: %v", err)
+	if err := grpcServer.Serve(tlsListener); err != nil {
+		log.Fatalf("gRPC server error: %v", err)
 	}
 
 }
