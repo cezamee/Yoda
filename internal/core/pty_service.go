@@ -66,7 +66,7 @@ func (b *NetstackBridge) HandleTLSPTYSession(stream pb.PTYShell_ShellServer, _ s
 
 	// Goroutine: PTY -> gRPC (shell output to client)
 	go func() {
-		buffer := make([]byte, 4096)
+		buffer := make([]byte, 2048)
 		for {
 			select {
 			case <-done:

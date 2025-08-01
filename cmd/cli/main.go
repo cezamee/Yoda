@@ -16,6 +16,7 @@ import (
 	"golang.org/x/term"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	_ "google.golang.org/grpc/encoding/gzip"
 )
 
 //go:embed certs/client.crt
@@ -51,6 +52,8 @@ func main() {
 
 	grpcConn, err := grpc.NewClient(addr,
 		grpc.WithTransportCredentials(creds),
+		grpc.WithReadBufferSize(1024),
+		grpc.WithWriteBufferSize(1024),
 	)
 	if err != nil {
 		log.Fatalf("Failed to connect to gRPC server: %v", err)
@@ -86,7 +89,7 @@ func main() {
 
 	// stdin -> gRPC
 	go func() {
-		buf := make([]byte, 4096)
+		buf := make([]byte, 2048)
 		for {
 			n, err := os.Stdin.Read(buf)
 			if n > 0 {

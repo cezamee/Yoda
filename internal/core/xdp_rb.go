@@ -5,7 +5,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"time"
 
 	cfg "github.com/cezamee/Yoda/internal/config"
@@ -35,11 +34,6 @@ func (b *NetstackBridge) StartPacketProcessing() {
 	b.Cb.UMEM.Unlock()
 
 	go func() {
-		if runtime.NumCPU() >= 4 {
-			if err := SetCPUAffinity(cfg.CpuTXProcessing); err != nil {
-				fmt.Printf("⚠️ CPU affinity for TX processing failed: %v\n", err)
-			}
-		}
 		b.handleOutboundPackets()
 	}()
 

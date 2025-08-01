@@ -15,11 +15,9 @@ Entrée principale du serveur réseau Yoda TLS AF_XDP
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
-	"runtime"
 	"syscall"
 
 	cfg "github.com/cezamee/Yoda/internal/config"
@@ -35,10 +33,6 @@ func main() {
 	if err := rlimit.RemoveMemlock(); err != nil {
 		log.Fatalf("Failed to remove memlock: %v", err)
 	}
-
-	// Detect system topology for CPU affinity optimization
-	// Détecte la topologie système pour optimiser l'affinité CPU
-	core.DetectNUMATopology()
 
 	// Initialize XDP components
 	// Initialise les composants XDP
@@ -65,20 +59,10 @@ func main() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		if runtime.NumCPU() >= 4 {
-			if err := core.SetCPUAffinity(cfg.CpuRXProcessing); err != nil {
-				fmt.Printf("⚠️ CPU affinity for RX processing failed: %v\n", err)
-			}
-		}
 		bridge.StartPacketProcessing()
 	}()
 
 	go func() {
-		if runtime.NumCPU() >= 4 {
-			if err := core.SetCPUAffinity(cfg.CpuTLSCrypto); err != nil {
-				fmt.Printf("⚠️ CPU affinity for TLS crypto failed: %v\n", err)
-			}
-		}
 		bridge.SetupGRPCServer()
 	}()
 

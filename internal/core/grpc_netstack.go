@@ -165,7 +165,10 @@ func (b *NetstackBridge) SetupGRPCServer() {
 
 	tlsListener := &loggingTLSListener{tls.NewListener(ln, tlsConfig)}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.ReadBufferSize(1024),
+		grpc.WriteBufferSize(1024),
+	)
 
 	// Register gRPC services
 	pb.RegisterPTYShellServer(grpcServer, &PTYShellServerImpl{Bridge: b})
