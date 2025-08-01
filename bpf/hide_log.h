@@ -22,7 +22,7 @@ typedef struct {
 // You can add more patterns here
 const StaticPattern patterns[MAX_PATTERNS] = {
     { "bpf_", sizeof("bpf_") - 1 },
-    { "xdp_", sizeof("xdp_") - 1 }
+    { "prog", sizeof("prog") - 1 }
 };
 
 // Commands to monitor

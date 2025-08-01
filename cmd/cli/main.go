@@ -2,17 +2,20 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	_ "embed"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/cezamee/Yoda/internal/core/pb"
 	"golang.org/x/term"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 //go:embed certs/client.crt
@@ -39,16 +42,30 @@ func main() {
 	if !caPool.AppendCertsFromPEM(caCertPEM) {
 		log.Fatalf("Failed to load CA cert")
 	}
-	conf := &tls.Config{
+	creds := credentials.NewTLS(&tls.Config{
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      caPool,
 		MinVersion:   tls.VersionTLS12,
-	}
-	conn, err := tls.Dial("tcp", addr, conf)
+	})
+
+	grpcConn, err := grpc.NewClient(addr,
+		grpc.WithTransportCredentials(creds),
+	)
 	if err != nil {
-		log.Fatalf("Failed to connect: %v", err)
+		log.Fatalf("Failed to connect to gRPC server: %v", err)
 	}
-	defer conn.Close()
+	defer grpcConn.Close()
+
+	client := pb.NewPTYShellClient(grpcConn)
+	stream, err := client.Shell(context.Background())
+	if err != nil {
+		log.Fatalf("Failed to open PTY shell stream: %v", err)
+	}
+
+	if width, height, err := term.GetSize(int(os.Stdin.Fd())); err == nil {
+		resizeMsg := fmt.Sprintf("\x1b[8;%d;%dt", height, width)
+		stream.Send(&pb.ShellData{Data: []byte(resizeMsg)})
+	}
 
 	// Set terminal in raw mode
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
@@ -66,11 +83,29 @@ func main() {
 		os.Exit(0)
 	}()
 
-	// Relay stdin -> TLS
+	// stdin -> gRPC
 	go func() {
-		io.Copy(conn, os.Stdin)
+		buf := make([]byte, 4096)
+		for {
+			n, err := os.Stdin.Read(buf)
+			if n > 0 {
+				stream.Send(&pb.ShellData{Data: buf[:n]})
+			}
+			if err != nil {
+				break
+			}
+		}
+		stream.CloseSend()
 	}()
 
-	// Relay TLS -> stdout
-	io.Copy(os.Stdout, conn)
+	// gRPC -> stdout
+	for {
+		resp, err := stream.Recv()
+		if err != nil {
+			break
+		}
+		if resp != nil && len(resp.Data) > 0 {
+			os.Stdout.Write(resp.Data)
+		}
+	}
 }

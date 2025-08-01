@@ -27,7 +27,7 @@ Requirements
 You need the following to build Yoda:
 
 - **Linux** (kernel 5.4+ recommended)
-- **Go 1.20+**
+- **Go 1.20+, protobuf-compiler**
 - **Python 3**
 - **Clang/LLVM, libbpf-dev, bpftool, make**
 - **Root privileges** (required for AF_XDP, eBPF)
@@ -35,7 +35,7 @@ You need the following to build Yoda:
 
 On Ubuntu/Debian, install the required packages with:
 ```sh
-sudo apt-get install clang llvm libbpf-dev bpftool make golang python3 build-essential linux-headers-$(uname -r)
+sudo apt-get install protobuf-compiler clang llvm libbpf-dev bpftool make golang python3 build-essential linux-headers-$(uname -r)
 ```
 
 To generate the `vmlinux.h` header (required for eBPF CO-RE):
@@ -56,6 +56,7 @@ Before building, edit `config.go` and `xdp_redirect.c` as needed to match your e
 # First generate mtls certs for cli & yoda
 make cert CERT_IP=IP_OF_YODA_SERV # Same ip as netLocalIP in config.go
 
+make proto      # Generate protobuff files
 make bpf        # Build eBPF programs
 make yoda       # Build Yoda server
 make cli        # Build Yoda client
@@ -109,7 +110,7 @@ On the client side use yoda cli and enjoy
            |        Yoda Server        |
            |---------------------------|
            |  gVisor Netstack          |
-           |  TLS Layer                |
+           |  gRPC mTLS Layer                |
            |  PTY Shell                |
            +---------------------------+
 ```

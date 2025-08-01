@@ -1,6 +1,6 @@
 // XDP initialization and configuration utilities
 // Utilitaires pour l'initialisation et la configuration XDP
-package core
+package ebpf
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 
+	cfg "github.com/cezamee/Yoda/internal/config"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"gvisor.dev/gvisor/pkg/xdp"
@@ -51,11 +52,11 @@ func InitializeXDP(interfaceName string) (*ebpf.Collection, *ebpf.Program, *ebpf
 	// Configure AF_XDP socket options
 	// Configure les options du socket AF_XDP
 	opts := xdp.DefaultOpts()
-	opts.NFrames = 4096        // Number of frames / Nombre de trames
-	opts.FrameSize = frameSize // Frame size / Taille des trames
-	opts.NDescriptors = 2048   // Number of descriptors / Nombre de descripteurs
-	opts.Bind = true           // Bind socket / Lie le socket
-	opts.UseNeedWakeup = true  // Enable need_wakeup / Active need_wakeup
+	opts.NFrames = 4096            // Number of frames / Nombre de trames
+	opts.FrameSize = cfg.FrameSize // Frame size / Taille des trames
+	opts.NDescriptors = 2048       // Number of descriptors / Nombre de descripteurs
+	opts.Bind = true               // Bind socket / Lie le socket
+	opts.UseNeedWakeup = true      // Enable need_wakeup / Active need_wakeup
 
 	// Create XDP socket
 	// Crée le socket XDP

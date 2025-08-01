@@ -10,12 +10,10 @@ int BPF_KPROBE(trace_write)
     struct pt_regs *real_regs = PT_REGS_SYSCALL_REGS(ctx);
 
     u32 uid = (u32)bpf_get_current_uid_gid();
-    if (uid != 0)
-        return 0;
-
+    
     char comm[TASK_COMM_LEN] = {};
     bpf_get_current_comm(&comm, sizeof(comm));
-
+    
     int found_command = 0;
     for (int c = 0; c < MAX_COMMANDS; c++) {
         if (__builtin_strncmp(comm, commands[c].command, commands[c].len) == 0) {

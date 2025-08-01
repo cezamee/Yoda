@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"time"
 
+	cfg "github.com/cezamee/Yoda/internal/config"
 	"golang.org/x/sys/unix"
 	"gvisor.dev/gvisor/pkg/buffer"
 	"gvisor.dev/gvisor/pkg/tcpip/network/ipv4"
@@ -17,7 +18,7 @@ import (
 var (
 	fallbackDestMAC     = []byte{0x52, 0x54, 0x00, 0x12, 0x34, 0x56}
 	etherTypeIPv4       = []byte{0x08, 0x00}
-	prebuiltEtherHeader = make([]byte, ethHeaderSize)
+	prebuiltEtherHeader = make([]byte, cfg.EthHeaderSize)
 )
 
 func init() {
@@ -35,7 +36,7 @@ func (b *NetstackBridge) StartPacketProcessing() {
 
 	go func() {
 		if runtime.NumCPU() >= 4 {
-			if err := SetCPUAffinity(CpuTXProcessing); err != nil {
+			if err := SetCPUAffinity(cfg.CpuTXProcessing); err != nil {
 				fmt.Printf("⚠️ CPU affinity for TX processing failed: %v\n", err)
 			}
 		}
@@ -175,7 +176,7 @@ func (b *NetstackBridge) handleOutboundPackets() {
 }
 
 func (b *NetstackBridge) sendPacketTX(ipData []byte) {
-	if len(ipData) < ipHeaderMinSize {
+	if len(ipData) < cfg.IpHeaderMinSize {
 		return
 	}
 
@@ -224,27 +225,27 @@ func (b *NetstackBridge) sendPacketTX(ipData []byte) {
 		return
 	}
 
-	frame := b.Cb.UMEM.Get(unix.XDPDesc{Addr: frameAddr, Len: uint32(ethHeaderSize + len(ipData))})
-	if len(frame) < ethHeaderSize+len(ipData) || ethHeaderSize+len(ipData) > frameSize {
+	frame := b.Cb.UMEM.Get(unix.XDPDesc{Addr: frameAddr, Len: uint32(cfg.EthHeaderSize + len(ipData))})
+	if len(frame) < cfg.EthHeaderSize+len(ipData) || cfg.EthHeaderSize+len(ipData) > cfg.FrameSize {
 		b.Cb.UMEM.FreeFrame(frameAddr)
 		return
 	}
 
-	copy(frame[0:ethHeaderSize], prebuiltEtherHeader)
+	copy(frame[0:cfg.EthHeaderSize], prebuiltEtherHeader)
 	if b.ClientMAC != [6]byte{} {
 		copy(frame[0:6], b.ClientMAC[:])
 	}
 
 	copy(frame[6:12], b.SrcMAC)
-	copy(frame[ethHeaderSize:], ipData)
+	copy(frame[cfg.EthHeaderSize:], ipData)
 
-	desc := unix.XDPDesc{Addr: frameAddr, Len: uint32(ethHeaderSize + len(ipData))}
+	desc := unix.XDPDesc{Addr: frameAddr, Len: uint32(cfg.EthHeaderSize + len(ipData))}
 	b.Cb.TX.Set(index, desc)
 	b.Cb.TX.Notify()
 }
 
 func (b *NetstackBridge) processPacket(packetData []byte) {
-	if len(packetData) < (ethHeaderSize + ipHeaderMinSize) {
+	if len(packetData) < (cfg.EthHeaderSize + cfg.IpHeaderMinSize) {
 		return
 	}
 
@@ -252,7 +253,7 @@ func (b *NetstackBridge) processPacket(packetData []byte) {
 		copy(b.ClientMAC[:], packetData[6:12])
 	}
 
-	ipPacket := packetData[ethHeaderSize:]
+	ipPacket := packetData[cfg.EthHeaderSize:]
 
 	pkt := stack.NewPacketBuffer(stack.PacketBufferOptions{
 		Payload: buffer.MakeWithData(ipPacket),
