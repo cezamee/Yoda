@@ -145,6 +145,7 @@ Yoda uses advanced XDP filtering to select which packets to process:
 ---
 
 ## 📝 TODO
+- **Add an interactive CLI with extended commands (such as download, upload, etc.)**
 - ~~Hide the Yoda process and executable from commands like ps, ls, top, etc., by hooking the getdents*() syscalls.~~
 - ~~Add a custom client for improved functionality.~~
 - ~~Suppress or hide kernel warnings related to bpf_probe_write_user in dmesg and other system logs.~~ 
