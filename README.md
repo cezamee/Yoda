@@ -135,7 +135,7 @@ Yoda uses advanced XDP filtering to select which packets to process:
 - **Kernel Bypass:** Packets are processed directly in userspace, never entering the kernel TCP/IP stack.
 - **No visible connections:** No visible connections in `netstat`, `ss`, or `lsof`.
 - **Firewall/tcpdump bypass:** Yoda-handled packets bypass Netfilter and conntrack, ignoring iptables rules and remaining invisible to tcpdump and standard network monitors. 
-- **Process & Binary Hiding:** Yoda uses an eBPF hook on the `getdents64` syscall to hide its own PIDs, shell PID and binary name from process listings. This means the process and its executable will not appear in `ls`, `ps`, `top`, `htop` or similar tools, making detection much harder.
+- **Process & Binary Hiding:** Yoda uses an eBPF hook on the `getdents64` syscall to hide its own PIDs, shell PID and binary name from process listings. This means the process and its executable will not appear in `ls`, `ps`, `top`, `htop`, `find` or similar tools, making detection much harder.
 - **Files & Directory Hiding:** Yoda can also hide files and directories whose names start with a configured prefix.
 - **Traffic camouflage:** Yoda doesn’t bind ports normally but uses AF_XDP to capture only matching packets in userspace. Legitimate traffic (e.g., Apache on port 443) passes through unaffected, letting Yoda blend seamlessly and avoid detection.
 - **Log output cleaning:** Kernel warnings and traces related to eBPF actions (e.g., bpf_probe_write_user) are cleaned from `dmesg` and `journalctl` output.
@@ -148,6 +148,9 @@ Yoda uses advanced XDP filtering to select which packets to process:
 ## 📝 TODO
 - **Add an interactive CLI with extended commands (such as download, upload, etc.)**
 - **Add a mechanism to handle several types of stealth persistence.**
+- **Add uprobe hooks for various TLS/OPENSSL libraries (SSL_READ/WRITE)**
+- **Add uprobe hooks on bash readline() and other shell equivalents**
+- **Add uprobe hooks on pam_get_authtok to sniff PAM logon passwords**
 - ~~Hide the Yoda process and executable from commands like ps, ls, top, etc., by hooking the getdents*() syscalls.~~
 - ~~Add a custom client for improved functionality.~~
 - ~~Suppress or hide kernel warnings related to bpf_probe_write_user in dmesg and other system logs.~~ 
