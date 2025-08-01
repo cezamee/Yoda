@@ -121,8 +121,6 @@ type loggingConn struct {
 
 func (c *loggingConn) Close() error {
 	if !c.closed {
-
-		c.closed = true
 		remoteAddr := c.RemoteAddr()
 		fmt.Printf("[gRPC] Connection closed from %s\n", remoteAddr)
 		c.closed = true
