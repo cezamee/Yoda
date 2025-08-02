@@ -5,6 +5,7 @@ package core
 import (
 	"fmt"
 	"os/exec"
+	"sync"
 
 	"github.com/cezamee/Yoda/internal/core/ebpf"
 	"github.com/cezamee/Yoda/internal/core/pb"
@@ -63,28 +64,32 @@ func (b *NetstackBridge) HandleTLSPTYSession(stream pb.PTYShell_ShellServer, _ s
 	ptmx.Write([]byte("clear\n"))
 
 	done := make(chan struct{})
+	var doneOnce sync.Once
 
 	// Goroutine: PTY -> gRPC (shell output to client)
 	go func() {
-		buffer := make([]byte, 2048)
+		buffer := make([]byte, 32*1024)
+
 		for {
 			select {
 			case <-done:
 				return
 			default:
 				n, err := ptmx.Read(buffer)
+
 				if err != nil {
-					close(done)
+					doneOnce.Do(func() { close(done) })
 					return
 				}
+
 				if n > 0 {
-					_ = stream.Send(&pb.ShellData{Data: buffer[:n]})
+					data := make([]byte, n)
+					copy(data, buffer[:n])
+					_ = stream.Send(&pb.ShellData{Data: data})
 				}
 			}
 		}
-	}()
-
-	// Main loop: gRPC -> PTY (client input to shell)
+	}() // Main loop: gRPC -> PTY (client input to shell)
 	for {
 		select {
 		case <-done:
@@ -93,19 +98,19 @@ func (b *NetstackBridge) HandleTLSPTYSession(stream pb.PTYShell_ShellServer, _ s
 		default:
 			in, err := stream.Recv()
 			if err != nil {
-				close(done)
+				doneOnce.Do(func() { close(done) })
 				fmt.Printf("📡 gRPC stream closed: %v\n", err)
 				return
 			}
 			if len(in.Data) > 0 {
 				if string(in.Data) == string([]byte{4}) {
-					close(done)
+					doneOnce.Do(func() { close(done) })
 					fmt.Printf("📡 Ctrl+D received, closing PTY\n")
 					return
 				}
 				_, err := ptmx.Write(in.Data)
 				if err != nil {
-					close(done)
+					doneOnce.Do(func() { close(done) })
 					fmt.Printf("❌ Failed to write to PTY: %v\n", err)
 					return
 				}
@@ -119,7 +124,6 @@ type PTYShellServerImpl struct {
 	Bridge *NetstackBridge
 }
 
-// Shell gRPC handler
 func (s *PTYShellServerImpl) Shell(stream pb.PTYShell_ShellServer) error {
 	s.Bridge.HandleTLSPTYSession(stream, "")
 	return nil

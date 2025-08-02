@@ -9,11 +9,13 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"time"
 
 	cfg "github.com/cezamee/Yoda/internal/config"
 	"github.com/cezamee/Yoda/internal/core/pb"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 
 	"github.com/cilium/ebpf"
 	"gvisor.dev/gvisor/pkg/tcpip"
@@ -46,6 +48,8 @@ type NetstackBridge struct {
 	StatsMap  *ebpf.Map         // eBPF stats map / Map eBPF statistiques
 	ClientMAC [6]byte           // Fixed-size MAC array / Tableau MAC taille fixe
 	SrcMAC    []byte            // Source MAC address / Adresse MAC source
+	RxRing    *RxRingBuffer     // Typed RX ring buffer
+	TxRing    *TxRingBuffer     // Typed TX ring buffer
 }
 
 // Create and configure the gVisor network stack (NIC, IP, routes)
@@ -61,7 +65,7 @@ func CreateNetstack() (*stack.Stack, *channel.Endpoint) {
 
 	// Create virtual NIC endpoint (channel)
 	// Crée un endpoint NIC virtuel (channel)
-	linkEP := channel.New(64, cfg.NetMTU, "")
+	linkEP := channel.New(8192, cfg.NetMTU, "")
 
 	// Register NIC with the stack
 	// Enregistre le NIC dans la stack
@@ -166,8 +170,17 @@ func (b *NetstackBridge) SetupGRPCServer() {
 	tlsListener := &loggingTLSListener{tls.NewListener(ln, tlsConfig)}
 
 	grpcServer := grpc.NewServer(
-		grpc.ReadBufferSize(1024),
-		grpc.WriteBufferSize(1024),
+		grpc.ReadBufferSize(64*1024),
+		grpc.WriteBufferSize(64*1024),
+		grpc.MaxConcurrentStreams(50),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    30 * time.Second,
+			Timeout: 5 * time.Second,
+		}),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             10 * time.Second,
+			PermitWithoutStream: true,
+		}),
 	)
 
 	// Register gRPC services
