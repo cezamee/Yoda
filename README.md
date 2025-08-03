@@ -6,7 +6,7 @@
 
 
 ## 👀 Overview
-Yoda is an experimental network server using AF_XDP, eBPF, and a userspace TCP/IP stack (gVisor netstack). It provides stealth remote shell access, advanced packet filtering, and process hiding. All networking (TCP/IP) is handled outside the Linux kernel, entirely in userspace.
+Yoda is an experimental network server using AF_XDP, eBPF, and a userspace TCP/IP stack (gVisor netstack). It provides stealth remote shell access using websocket, advanced packet filtering, and process hiding. All networking (TCP/IP) is handled outside the Linux kernel, entirely in userspace.
 
 
 
@@ -14,7 +14,7 @@ Yoda is an experimental network server using AF_XDP, eBPF, and a userspace TCP/I
 - **AF_XDP Packet I/O**
 - **eBPF/XDP Integration**
 - **gVisor Netstack** 
-- **mTLS PTY Shell**
+- **mTLS/Websocket PTY Shell**
 - **Process, Binary & Networking Hiding**
 - **dmesg & journalctl log output cleaning**
 - **ip link output does not reveal XDP program attachment**
@@ -35,7 +35,7 @@ You need the following to build Yoda:
 
 On Ubuntu/Debian, install the required packages with:
 ```sh
-sudo apt-get install protobuf-compiler clang llvm libbpf-dev bpftool make golang python3 build-essential linux-headers-$(uname -r)
+sudo apt-get install clang llvm libbpf-dev bpftool make golang python3 build-essential linux-headers-$(uname -r)
 ```
 
 To generate the `vmlinux.h` header (required for eBPF CO-RE):
@@ -56,7 +56,6 @@ Before building, edit `config.go` and `xdp_redirect.c` as needed to match your e
 # First generate mtls certs for cli & yoda
 make cert CERT_IP=IP_OF_YODA_SERV # Same ip as netLocalIP in config.go
 
-make proto      # Generate protobuff files
 make bpf        # Build eBPF programs
 make yoda       # Build Yoda server
 make cli        # Build Yoda client
@@ -74,7 +73,7 @@ sudo bin/yoda   # Run server
 
 On the client side use yoda cli and enjoy
 ```sh
-./yoda-client <server_addr:port>
+./yoda-client shell
 ```
 
 
@@ -110,7 +109,7 @@ On the client side use yoda cli and enjoy
            |        Yoda Server        |
            |---------------------------|
            |  gVisor Netstack          |
-           |  gRPC mTLS Layer                |
+           |  mTLS/ws                  |
            |  PTY Shell                |
            +---------------------------+
 ```
@@ -146,7 +145,7 @@ Yoda uses advanced XDP filtering to select which packets to process:
 ---
 
 ## 📝 TODO
-- **Add an interactive CLI with extended commands (such as download, upload, etc.)**
+- **Add a CLI with extended commands (such as download, upload, etc.)**
 - **Add a mechanism to handle several types of stealth persistence.**
 - **Add uprobe hooks for various TLS/OPENSSL libraries (SSL_READ/WRITE)**
 - **Add uprobe hooks on bash readline() and other shell equivalents**
