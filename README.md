@@ -145,7 +145,7 @@ Yoda uses advanced XDP filtering to select which packets to process:
 ---
 
 ## 📝 TODO
-- **Add a CLI with extended commands (such as download, upload, etc.)**
+- **Add extended commands (such as download, upload, etc.)**
 - **Add a mechanism to handle several types of stealth persistence.**
 - **Add uprobe hooks for various TLS/OPENSSL libraries (SSL_READ/WRITE)**
 - **Add uprobe hooks on bash readline() and other shell equivalents**
