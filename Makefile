@@ -13,13 +13,10 @@ CLI_BIN = yoda-client
 
 
 
-.PHONY: all yoda cli bpf clean cert proto
+.PHONY: all yoda cli bpf clean cert
 
 
-
-all: proto bpf yoda cli
-proto:
-	protoc --go_out=. --go-grpc_out=. internal/core/proto/*
+all: bpf yoda cli
 
 CERT_IP ?= 127.0.0.1
 

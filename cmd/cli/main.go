@@ -1,70 +1,38 @@
-// Minimal Yoda client: connect via TLS and relay stdin/stdout (TTY mode)
+// Yoda WebSocket client: direct shell connection
 package main
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	_ "embed"
 	"fmt"
-	"log"
-	"os"
-	"time"
 
-	"github.com/cezamee/Yoda/internal/core/pb"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/keepalive"
+	"github.com/spf13/cobra"
 )
 
-//go:embed certs/client.crt
-var clientCertPEM []byte
+var rootCmd = &cobra.Command{
+	Use:   "yoda",
+	Short: "Yoda remote shell client",
+	Long: `Yoda is a secure WebSocket-based remote shell client.
+It connects to a Yoda server over mTLS WebSocket to provide 
+interactive shell access with advanced features.`,
+	CompletionOptions: cobra.CompletionOptions{
+		DisableDefaultCmd: true,
+	},
+}
 
-//go:embed certs/client.key
-var clientKeyPEM []byte
+var shellCmd = &cobra.Command{
+	Use:   "shell",
+	Short: "Connect to remote shell",
+	Long: `Connect to the remote Yoda server and start an interactive shell session.
+This command establishes a secure WebSocket connection over mTLS.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("🚀 Connecting to Yoda shell...")
+		runShellSession()
+	},
+}
 
-//go:embed certs/ca.crt
-var caCertPEM []byte
+func init() {
+	rootCmd.AddCommand(shellCmd)
+}
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "Usage: %s <server_addr:port>\n", os.Args[0])
-		os.Exit(1)
-	}
-	addr := os.Args[1]
-
-	cert, err := tls.X509KeyPair(clientCertPEM, clientKeyPEM)
-	if err != nil {
-		log.Fatalf("Failed to load client cert/key: %v", err)
-	}
-	caPool := x509.NewCertPool()
-	if !caPool.AppendCertsFromPEM(caCertPEM) {
-		log.Fatalf("Failed to load CA cert")
-	}
-	creds := credentials.NewTLS(&tls.Config{
-		Certificates: []tls.Certificate{cert},
-		RootCAs:      caPool,
-		MinVersion:   tls.VersionTLS12,
-		NextProtos:   []string{"h2"},
-	})
-
-	grpcConn, err := grpc.NewClient(addr,
-		grpc.WithTransportCredentials(creds),
-		grpc.WithReadBufferSize(64*1024),
-		grpc.WithWriteBufferSize(64*1024),
-		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:                30 * time.Second,
-			Timeout:             5 * time.Second,
-			PermitWithoutStream: true,
-		}),
-	)
-	if err != nil {
-		log.Fatalf("Failed to connect to gRPC server: %v", err)
-	}
-	defer grpcConn.Close()
-
-	client := pb.NewPTYShellClient(grpcConn)
-
-	if err := RunCLI(client); err != nil {
-		log.Fatalf("CLI error: %v", err)
-	}
+	rootCmd.Execute()
 }

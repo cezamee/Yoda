@@ -1,5 +1,5 @@
-// gVisor Netstack initialization and gRPC mTLS server setup
-// Initialisation du Netstack gVisor et configuration du serveur gRPC mTLS
+// gVisor Netstack initialization and WebSocket mTLS server setup
+// Initialisation du Netstack gVisor et configuration du serveur WebSocket mTLS
 package core
 
 import (
@@ -9,13 +9,10 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"time"
+	"net/http"
 
 	cfg "github.com/cezamee/Yoda/internal/config"
-	"github.com/cezamee/Yoda/internal/core/pb"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/keepalive"
+	"github.com/gorilla/websocket"
 
 	"github.com/cilium/ebpf"
 	"gvisor.dev/gvisor/pkg/tcpip"
@@ -104,36 +101,14 @@ func CreateNetstack() (*stack.Stack, *channel.Endpoint) {
 	return s, linkEP
 }
 
-type loggingTLSListener struct {
-	net.Listener
-}
-
-func (l *loggingTLSListener) Accept() (net.Conn, error) {
-	conn, err := l.Listener.Accept()
-	if err == nil {
-		remoteAddr := conn.RemoteAddr()
-		fmt.Printf("[gRPC] Incoming connection from %s\n", remoteAddr)
-		conn = &loggingConn{Conn: conn}
+func (b *NetstackBridge) SetupWebSocketServer() {
+	var upgrader = websocket.Upgrader{
+		ReadBufferSize:  4 * 1024,
+		WriteBufferSize: 4 * 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
 	}
-	return conn, err
-}
-
-type loggingConn struct {
-	net.Conn
-	closed bool
-}
-
-func (c *loggingConn) Close() error {
-	if !c.closed {
-		remoteAddr := c.RemoteAddr()
-		fmt.Printf("[gRPC] Connection closed from %s\n", remoteAddr)
-		c.closed = true
-	}
-	return c.Conn.Close()
-
-}
-
-func (b *NetstackBridge) SetupGRPCServer() {
 
 	cert, err := tls.X509KeyPair(serverCertPEM, serverKeyPEM)
 	if err != nil {
@@ -155,7 +130,6 @@ func (b *NetstackBridge) SetupGRPCServer() {
 		PreferServerCipherSuites: true,
 		ClientAuth:               tls.RequireAndVerifyClientCert,
 		ClientCAs:                caPool,
-		NextProtos:               []string{"h2"},
 	}
 
 	ln, err := gonet.ListenTCP(b.Stack, tcpip.FullAddress{
@@ -167,28 +141,30 @@ func (b *NetstackBridge) SetupGRPCServer() {
 		log.Fatalf("failed to create gonet listener: %v", err)
 	}
 
-	tlsListener := &loggingTLSListener{tls.NewListener(ln, tlsConfig)}
+	tlsListener := tls.NewListener(ln, tlsConfig)
 
-	grpcServer := grpc.NewServer(
-		grpc.ReadBufferSize(64*1024),
-		grpc.WriteBufferSize(64*1024),
-		grpc.MaxConcurrentStreams(50),
-		grpc.KeepaliveParams(keepalive.ServerParameters{
-			Time:    30 * time.Second,
-			Timeout: 5 * time.Second,
-		}),
-		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-			MinTime:             10 * time.Second,
-			PermitWithoutStream: true,
-		}),
-	)
+	// Create HTTP server with WebSocket handler
+	mux := http.NewServeMux()
+	mux.HandleFunc("/shell", func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Printf("WebSocket upgrade failed: %v", err)
+			return
+		}
+		defer conn.Close()
 
-	// Register gRPC services
-	pb.RegisterPTYShellServer(grpcServer, &PTYShellServerImpl{Bridge: b})
+		fmt.Printf("🔗 [WebSocket] Shell session started from %s\n", r.RemoteAddr)
+		b.HandleWebSocketPTYSession(conn)
+		fmt.Printf("📡 [WebSocket] Shell session ended from %s\n", r.RemoteAddr)
+	})
 
-	fmt.Printf("✅ [gRPC] ready on %s:%d (mTLS)\n", cfg.NetLocalIP, cfg.TcpListenPort)
-	if err := grpcServer.Serve(tlsListener); err != nil {
-		log.Fatalf("gRPC server error: %v", err)
+	httpServer := &http.Server{
+		Handler:   mux,
+		TLSConfig: tlsConfig,
 	}
 
+	fmt.Printf("✅ [WebSocket] ready on %s:%d (mTLS)\n", cfg.NetLocalIP, cfg.TcpListenPort)
+	if err := httpServer.Serve(tlsListener); err != nil {
+		log.Fatalf("WebSocket server error: %v", err)
+	}
 }

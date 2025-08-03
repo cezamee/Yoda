@@ -63,7 +63,7 @@ func main() {
 	}()
 
 	go func() {
-		bridge.SetupGRPCServer()
+		bridge.SetupWebSocketServer()
 	}()
 
 	exit, err := ebpf.LoadAndAttachHideLog()

