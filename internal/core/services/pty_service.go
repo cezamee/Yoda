@@ -24,6 +24,7 @@ type WSMessage struct {
 // Handle a WebSocket PTY session: start bash, negotiate terminal size, and relay I/O
 // Gère une session PTY WebSocket : démarre bash, négocie la taille du terminal, relaie les flux I/O
 func HandleWebSocketPTYSession(conn *websocket.Conn) {
+
 	cmd := exec.Command("/bin/bash", "-l", "-i")
 	cmd.Env = []string{
 		"TERM=xterm-256color",
@@ -50,6 +51,9 @@ func HandleWebSocketPTYSession(conn *websocket.Conn) {
 	}(cmd.Process.Pid)
 
 	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("🚨 PTY service panic: %v\n", r)
+		}
 		fmt.Printf("🧹 Cleaning up WebSocket PTY session...\n")
 		ptmx.Close()
 		if cmd.Process != nil {
@@ -96,7 +100,11 @@ func HandleWebSocketPTYSession(conn *websocket.Conn) {
 						doneOnce.Do(func() { close(done) })
 						return
 					}
+
 					if err := conn.WriteMessage(websocket.TextMessage, msgBytes); err != nil {
+						if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+							fmt.Printf("📡 WebSocket unexpected close during PTY output: %v\n", err)
+						}
 						doneOnce.Do(func() { close(done) })
 						return
 					}
@@ -112,10 +120,24 @@ func HandleWebSocketPTYSession(conn *websocket.Conn) {
 			fmt.Printf("📡 WebSocket PTY session ended\n")
 			return
 		default:
-			_, msgBytes, err := conn.ReadMessage()
+
+			msgType, msgBytes, err := conn.ReadMessage()
 			if err != nil {
+				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+					fmt.Printf("📡 WebSocket closed normally: %v\n", err)
+				} else if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					fmt.Printf("📡 WebSocket unexpected close: %v\n", err)
+				} else {
+					fmt.Printf("📡 WebSocket closed: %v\n", err)
+				}
 				doneOnce.Do(func() { close(done) })
-				fmt.Printf("📡 WebSocket closed: %v\n", err)
+				return
+			}
+
+			// Handle close messages
+			if msgType == websocket.CloseMessage {
+				fmt.Printf("📡 Received close message from client\n")
+				doneOnce.Do(func() { close(done) })
 				return
 			}
 

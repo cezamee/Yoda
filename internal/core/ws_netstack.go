@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"time"
 
 	cfg "github.com/cezamee/Yoda/internal/config"
 	"github.com/cezamee/Yoda/internal/core/services"
@@ -86,6 +87,24 @@ func CreateNetstack() (*stack.Stack, *channel.Endpoint) {
 	return s, linkEP
 }
 
+// configureWebSocketTimeouts sets up appropriate timeouts for different service types
+func configureWebSocketTimeouts(conn *websocket.Conn, serviceType string) {
+	switch serviceType {
+	case "shell":
+		// Interactive shell
+		conn.SetReadDeadline(time.Now().Add(300 * time.Second)) // 5 min
+		conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
+	case "download":
+		// File download
+		conn.SetReadDeadline(time.Now().Add(300 * time.Second)) // 5 min
+		conn.SetWriteDeadline(time.Now().Add(300 * time.Second))
+	case "ps", "ls":
+		// Quick commands
+		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
+	}
+}
+
 func SetupWebSocketServer(b *cfg.NetstackBridge) {
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  80 * 1024,
@@ -138,6 +157,8 @@ func SetupWebSocketServer(b *cfg.NetstackBridge) {
 		}
 		defer conn.Close()
 
+		configureWebSocketTimeouts(conn, "shell")
+
 		fmt.Printf("🔗 [WebSocket] Shell session started from %s\n", r.RemoteAddr)
 		services.HandleWebSocketPTYSession(conn)
 		fmt.Printf("📡 [WebSocket] Shell session ended from %s\n", r.RemoteAddr)
@@ -151,9 +172,41 @@ func SetupWebSocketServer(b *cfg.NetstackBridge) {
 		}
 		defer conn.Close()
 
+		configureWebSocketTimeouts(conn, "download")
+
 		fmt.Printf("🔽 [WebSocket] Download session started from %s\n", r.RemoteAddr)
 		services.HandleWebSocketDownload(conn)
 		fmt.Printf("📡 [WebSocket] Download session ended from %s\n", r.RemoteAddr)
+	})
+
+	mux.HandleFunc("/ps", func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Printf("WebSocket upgrade failed: %v", err)
+			return
+		}
+		defer conn.Close()
+
+		configureWebSocketTimeouts(conn, "ps")
+
+		fmt.Printf("🔍 [WebSocket] PS session started from %s\n", r.RemoteAddr)
+		services.HandleWebSocketPSSession(conn)
+		fmt.Printf("📡 [WebSocket] PS session ended from %s\n", r.RemoteAddr)
+	})
+
+	mux.HandleFunc("/ls", func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Printf("WebSocket upgrade failed: %v", err)
+			return
+		}
+		defer conn.Close()
+
+		configureWebSocketTimeouts(conn, "ls")
+
+		fmt.Printf("📁 [WebSocket] LS session started from %s\n", r.RemoteAddr)
+		services.HandleWebSocketLSSession(conn)
+		fmt.Printf("📡 [WebSocket] LS session ended from %s\n", r.RemoteAddr)
 	})
 
 	httpServer := &http.Server{

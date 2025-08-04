@@ -50,14 +50,28 @@ func HandleWebSocketDownload(conn *websocket.Conn) {
 	fmt.Printf("🔽 Download service started\n")
 
 	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("🚨 Download service panic: %v\n", r)
+		}
 		fmt.Printf("🧹 Download service connection closed\n")
 		conn.Close()
 	}()
 
 	for {
-		_, msgBytes, err := conn.ReadMessage()
+		msgType, msgBytes, err := conn.ReadMessage()
 		if err != nil {
-			fmt.Printf("❌ Failed to read WebSocket message: %v\n", err)
+			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+				fmt.Printf("📡 WebSocket closed normally: %v\n", err)
+			} else if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				fmt.Printf("📡 WebSocket unexpected close: %v\n", err)
+			} else {
+				fmt.Printf("❌ Failed to read WebSocket message: %v\n", err)
+			}
+			return
+		}
+
+		if msgType == websocket.CloseMessage {
+			fmt.Printf("📡 Received close message from client\n")
 			return
 		}
 
@@ -182,7 +196,13 @@ func sendDownloadMessage(conn *websocket.Conn, msg DownloadMessage) error {
 		return fmt.Errorf("failed to marshal message: %v", err)
 	}
 
-	return conn.WriteMessage(websocket.TextMessage, msgBytes)
+	if err := conn.WriteMessage(websocket.TextMessage, msgBytes); err != nil {
+		if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			return fmt.Errorf("WebSocket unexpected close during send: %v", err)
+		}
+		return err
+	}
+	return nil
 }
 
 // sendBinaryChunk sends a binary chunk
@@ -193,13 +213,27 @@ func sendBinaryChunk(conn *websocket.Conn, chunkID uint32, data []byte) error {
 	binary.LittleEndian.PutUint32(header[5:9], uint32(len(data)))
 
 	msg := append(header, data...)
-	return conn.WriteMessage(websocket.BinaryMessage, msg)
+
+	if err := conn.WriteMessage(websocket.BinaryMessage, msg); err != nil {
+		if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			return fmt.Errorf("WebSocket unexpected close during binary send: %v", err)
+		}
+		return err
+	}
+	return nil
 }
 
 // sendBinaryComplete sends a binary completion message
 func sendBinaryComplete(conn *websocket.Conn) error {
 	msg := []byte{BinaryMsgTypeComplete}
-	return conn.WriteMessage(websocket.BinaryMessage, msg)
+
+	if err := conn.WriteMessage(websocket.BinaryMessage, msg); err != nil {
+		if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			return fmt.Errorf("WebSocket unexpected close during completion send: %v", err)
+		}
+		return err
+	}
+	return nil
 }
 
 // sendBinaryError sends a binary error message

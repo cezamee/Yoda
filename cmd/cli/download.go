@@ -356,4 +356,6 @@ func downloadCommand(conn *websocket.Conn, args []string) {
 	if err := DownloadFile(conn, remotePath, localPath); err != nil {
 		fmt.Printf("❌ Download failed: %v\n", err)
 	}
+
+	conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 }

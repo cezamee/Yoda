@@ -56,6 +56,55 @@ var downloadCmd = &cobra.Command{
 	},
 }
 
+var psCmd = &cobra.Command{
+	Use:   "ps [flags]",
+	Short: "List processes on the remote server",
+	Long: "List processes on the remote server via secure WebSocket connection.\n\n" +
+		"Flags:\n" +
+		"  -t, --tree    Display processes in tree format\n\n" +
+		"Examples:\n" +
+		"  " + filepath.Base(os.Args[0]) + " ps\n" +
+		"  " + filepath.Base(os.Args[0]) + " ps -t\n",
+	Run: func(cmd *cobra.Command, args []string) {
+		tree, _ := cmd.Flags().GetBool("tree")
+
+		fmt.Println("🔍 Fetching process list...")
+
+		conn, err := createSecureWebSocketConnection("/ps")
+		if err != nil {
+			fmt.Printf("❌ %v\n", err)
+			return
+		}
+		defer conn.Close()
+
+		psCommand(conn, tree)
+	},
+}
+
+var lsCmd = &cobra.Command{
+	Use:   "ls [path...]",
+	Short: "List directory contents on the remote server",
+	Long: "List directory contents with detailed information (equivalent to ls -al).\n\n" +
+		"Supports wildcards like *.txt, /home/*/.bashrc, etc.\n\n" +
+		"Examples:\n" +
+		"  " + filepath.Base(os.Args[0]) + " ls\n" +
+		"  " + filepath.Base(os.Args[0]) + " ls /etc\n" +
+		"  " + filepath.Base(os.Args[0]) + " ls '/var/log/*.log'\n" +
+		"  " + filepath.Base(os.Args[0]) + " ls '/home/*/.bashrc'\n",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("📁 Listing files...")
+
+		conn, err := createSecureWebSocketConnection("/ls")
+		if err != nil {
+			fmt.Printf("❌ %v\n", err)
+			return
+		}
+		defer conn.Close()
+
+		lsCommand(conn, args)
+	},
+}
+
 var completionCmd = &cobra.Command{
 	Use:   "completion [bash|zsh|fish]",
 	Short: "Generate shell completion script",
@@ -82,8 +131,12 @@ var completionCmd = &cobra.Command{
 }
 
 func init() {
+	psCmd.Flags().BoolP("tree", "t", false, "Display processes in tree format")
+
 	rootCmd.AddCommand(shellCmd)
 	rootCmd.AddCommand(downloadCmd)
+	rootCmd.AddCommand(psCmd)
+	rootCmd.AddCommand(lsCmd)
 	rootCmd.AddCommand(completionCmd)
 }
 
