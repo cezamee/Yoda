@@ -1,6 +1,6 @@
 # Yoda: Post-exploitation Stealth Tool (AF_XDP, eBPF, gVisor)
 
-> ⚠️ [!WARNING]
+> [!WARNING]
 >
 > This project is for research and educational purposes only. The author declines all responsibility for any malicious, illegal, or unethical use of this code. You are solely responsible for how you use, share, or deploy this software. Use it only in controlled, authorized environments and always respect the law.
 
@@ -65,7 +65,7 @@ sudo bin/yoda   # Run server
 
 ### Test
 
-> ⚠️ [!WARNING]  
+> [!WARNING]  
 > The client **must** be run from another physical machine on your LAN.  
 > Packets must arrive on the actual physical network interface monitored by XDP.  
 > Traffic from Docker containers, localhost, or most VMs usually does **not** reach the physical NIC and will **not** trigger the XDP program.  
