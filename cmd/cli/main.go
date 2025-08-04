@@ -105,6 +105,62 @@ var lsCmd = &cobra.Command{
 	},
 }
 
+var catCmd = &cobra.Command{
+	Use:   "cat <file...>",
+	Short: "Display file contents on the remote server",
+	Long: "Display the contents of one or more files on the remote server.\n\n" +
+		"Supports wildcards like *.txt, /var/log/*.log, etc.\n\n" +
+		"Examples:\n" +
+		"  " + filepath.Base(os.Args[0]) + " cat /etc/passwd\n" +
+		"  " + filepath.Base(os.Args[0]) + " cat '/var/log/*.log'\n" +
+		"  " + filepath.Base(os.Args[0]) + " cat '/home/*/.bashrc'\n" +
+		"  " + filepath.Base(os.Args[0]) + " cat file1.txt file2.txt\n",
+	Args: cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("📄 Reading file contents...")
+
+		conn, err := createSecureWebSocketConnection("/cat")
+		if err != nil {
+			fmt.Printf("❌ %v\n", err)
+			return
+		}
+		defer conn.Close()
+
+		catCommand(conn, args)
+	},
+}
+
+var rmCmd = &cobra.Command{
+	Use:   "rm [flags] <file...>",
+	Short: "Remove files and directories on the remote server",
+	Long: "Remove files and directories on the remote server.\n\n" +
+		"Supports wildcards like *.txt, /tmp/*, etc.\n\n" +
+		"Flags:\n" +
+		"  -r, --recursive    Remove directories and their contents recursively\n" +
+		"  -f, --force        Ignore nonexistent files and arguments, never prompt\n\n" +
+		"Examples:\n" +
+		"  " + filepath.Base(os.Args[0]) + " rm file.txt\n" +
+		"  " + filepath.Base(os.Args[0]) + " rm -r /tmp/test\n" +
+		"  " + filepath.Base(os.Args[0]) + " rm -f '/tmp/*.log'\n" +
+		"  " + filepath.Base(os.Args[0]) + " rm -rf '/home/*/temp'\n",
+	Args: cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		recursive, _ := cmd.Flags().GetBool("recursive")
+		force, _ := cmd.Flags().GetBool("force")
+
+		fmt.Println("🗑️ Removing files...")
+
+		conn, err := createSecureWebSocketConnection("/rm")
+		if err != nil {
+			fmt.Printf("❌ %v\n", err)
+			return
+		}
+		defer conn.Close()
+
+		rmCommand(conn, args, recursive, force)
+	},
+}
+
 var completionCmd = &cobra.Command{
 	Use:   "completion [bash|zsh|fish]",
 	Short: "Generate shell completion script",
@@ -133,10 +189,15 @@ var completionCmd = &cobra.Command{
 func init() {
 	psCmd.Flags().BoolP("tree", "t", false, "Display processes in tree format")
 
+	rmCmd.Flags().BoolP("recursive", "r", false, "Remove directories and their contents recursively")
+	rmCmd.Flags().BoolP("force", "f", false, "Ignore nonexistent files and arguments, never prompt")
+
 	rootCmd.AddCommand(shellCmd)
 	rootCmd.AddCommand(downloadCmd)
 	rootCmd.AddCommand(psCmd)
 	rootCmd.AddCommand(lsCmd)
+	rootCmd.AddCommand(catCmd)
+	rootCmd.AddCommand(rmCmd)
 	rootCmd.AddCommand(completionCmd)
 }
 

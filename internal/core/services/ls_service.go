@@ -131,7 +131,7 @@ func handleLSCommand(conn *websocket.Conn, command string) {
 
 	response := LSMessage{
 		Type:    "ls_result",
-		Command: "ls -al (native)",
+		Command: "ls -al",
 		Output:  output.String(),
 	}
 
@@ -271,16 +271,6 @@ func getGroupName(gid uint32) string {
 		}
 	}
 	return fmt.Sprintf("%d", gid)
-}
-
-// hasWildcards checks if any path contains wildcard characters
-func hasWildcards(paths []string) bool {
-	for _, path := range paths {
-		if strings.ContainsAny(path, "*?[]") {
-			return true
-		}
-	}
-	return false
 }
 
 // generateStructuredLSOutput creates ls output structured by directory
