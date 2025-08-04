@@ -10,7 +10,7 @@ import (
 
 // printStats displays eBPF statistics for the NetstackBridge
 // printStats affiche les statistiques eBPF pour NetstackBridge
-func (b *NetstackBridge) printStats() {
+func printStats(b *cfg.NetstackBridge) {
 	var stats [4]uint64
 
 	// For a PERCPU_ARRAY map, read all per-CPU values and sum them

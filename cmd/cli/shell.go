@@ -1,76 +1,26 @@
 package main
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 
-	cfg "github.com/cezamee/Yoda/internal/config"
 	"github.com/gorilla/websocket"
 	"golang.org/x/term"
 )
 
-//go:embed certs/ca.crt
-var caCertPEM []byte
-
-//go:embed certs/client.crt
-var clientCertPEM []byte
-
-//go:embed certs/client.key
-var clientKeyPEM []byte
-
 // Message structure for WebSocket communication
 type WSMessage struct {
-	Type string `json:"type"` // "data", "resize"
+	Type string `json:"type"`
 	Data []byte `json:"data,omitempty"`
 	Rows int    `json:"rows,omitempty"`
 	Cols int    `json:"cols,omitempty"`
 }
 
 // runShellSession starts an interactive shell session using WebSocket streaming.
-func runShellSession() {
-	fmt.Println("🔗 Connecting to shell...")
-
-	// Setup TLS config for mutual TLS
-	cert, err := tls.X509KeyPair(clientCertPEM, clientKeyPEM)
-	if err != nil {
-		log.Printf("Failed to load client cert/key: %v", err)
-		return
-	}
-
-	caPool := x509.NewCertPool()
-	if !caPool.AppendCertsFromPEM(caCertPEM) {
-		log.Printf("Failed to load CA cert")
-		return
-	}
-
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		RootCAs:      caPool,
-		MinVersion:   tls.VersionTLS12,
-	}
-
-	dialer := websocket.Dialer{
-		TLSClientConfig: tlsConfig,
-	}
-
-	wsURL := url.URL{
-		Scheme: "wss",
-		Host:   fmt.Sprintf("%s:%d", cfg.NetLocalIP, cfg.TcpListenPort),
-		Path:   "/shell",
-	}
-
-	conn, _, err := dialer.Dial(wsURL.String(), nil)
-	if err != nil {
-		log.Printf("WebSocket connection failed: %v", err)
-		return
-	}
-	defer conn.Close()
+func runShellSession(conn *websocket.Conn) {
+	fmt.Println("🔗 Connected to shell!")
 
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {

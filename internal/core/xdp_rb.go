@@ -33,94 +33,70 @@ func init() {
 	copy(prebuiltEtherHeader[12:14], etherTypeIPv4)
 }
 
-// RxPacket structure for received packets
-type RxPacket struct {
-	buffer    []byte
-	frameAddr uint64
-}
-
-type RxRingBuffer struct {
-	buf   []RxPacket
-	size  int
-	head  int
-	tail  int
-	count int
-	mask  int
-}
-
-type TxRingBuffer struct {
-	buf   [][]byte
-	size  int
-	head  int
-	tail  int
-	count int
-	mask  int
-}
-
-func NewRxRingBuffer(size int) *RxRingBuffer {
+func NewRxRingBuffer(size int) *cfg.RxRingBuffer {
 	if size&(size-1) != 0 {
 		size = 1 << (32 - bits.LeadingZeros32(uint32(size-1)))
 	}
-	return &RxRingBuffer{
-		buf:  make([]RxPacket, size),
-		size: size,
-		mask: size - 1,
+	return &cfg.RxRingBuffer{
+		Buf:  make([]cfg.RxPacket, size),
+		Size: size,
+		Mask: size - 1,
 	}
 }
 
-func NewTxRingBuffer(size int) *TxRingBuffer {
+func NewTxRingBuffer(size int) *cfg.TxRingBuffer {
 	if size&(size-1) != 0 {
 		size = 1 << (32 - bits.LeadingZeros32(uint32(size-1)))
 	}
-	return &TxRingBuffer{
-		buf:  make([][]byte, size),
-		size: size,
-		mask: size - 1,
+	return &cfg.TxRingBuffer{
+		Buf:  make([][]byte, size),
+		Size: size,
+		Mask: size - 1,
 	}
 }
 
-func (r *RxRingBuffer) Push(val RxPacket) bool {
-	if r.count == r.size {
+func PushRxPacket(r *cfg.RxRingBuffer, val cfg.RxPacket) bool {
+	if r.Count == r.Size {
 		return false
 	}
-	r.buf[r.tail] = val
-	r.tail = (r.tail + 1) & r.mask
-	r.count++
+	r.Buf[r.Tail] = val
+	r.Tail = (r.Tail + 1) & r.Mask
+	r.Count++
 	return true
 }
 
-func (r *RxRingBuffer) Pop() (RxPacket, bool) {
-	if r.count == 0 {
-		return RxPacket{}, false
+func PopRxPacket(r *cfg.RxRingBuffer) (cfg.RxPacket, bool) {
+	if r.Count == 0 {
+		return cfg.RxPacket{}, false
 	}
-	val := r.buf[r.head]
-	r.head = (r.head + 1) & r.mask
-	r.count--
+	val := r.Buf[r.Head]
+	r.Head = (r.Head + 1) & r.Mask
+	r.Count--
 	return val, true
 }
 
-func (r *TxRingBuffer) Push(val []byte) bool {
-	if r.count == r.size {
+func PushTxPacket(r *cfg.TxRingBuffer, val []byte) bool {
+	if r.Count == r.Size {
 		return false
 	}
-	r.buf[r.tail] = val
-	r.tail = (r.tail + 1) & r.mask
-	r.count++
+	r.Buf[r.Tail] = val
+	r.Tail = (r.Tail + 1) & r.Mask
+	r.Count++
 	return true
 }
 
-func (r *TxRingBuffer) Pop() ([]byte, bool) {
-	if r.count == 0 {
+func PopTxPacket(r *cfg.TxRingBuffer) ([]byte, bool) {
+	if r.Count == 0 {
 		return nil, false
 	}
-	val := r.buf[r.head]
-	r.head = (r.head + 1) & r.mask
-	r.count--
+	val := r.Buf[r.Head]
+	r.Head = (r.Head + 1) & r.Mask
+	r.Count--
 	return val, true
 }
 
 // Start main AF_XDP packet processing loop
-func (b *NetstackBridge) StartPacketProcessing() {
+func StartPacketProcessing(b *cfg.NetstackBridge) {
 
 	if b.RxRing == nil {
 		b.RxRing = NewRxRingBuffer(4096)
@@ -134,7 +110,7 @@ func (b *NetstackBridge) StartPacketProcessing() {
 	b.Cb.UMEM.Unlock()
 
 	go func() {
-		b.handleOutboundPackets()
+		handleOutboundPackets(b)
 	}()
 
 	statsTicker := time.NewTicker(50 * time.Second)
@@ -149,20 +125,20 @@ func (b *NetstackBridge) StartPacketProcessing() {
 
 		select {
 		case <-statsTicker.C:
-			b.printStats()
+			printStats(b)
 		default:
 			// STEP 1: Process TX completion queue FIRST
-			if b.processCompletionQueue() {
+			if processCompletionQueue(b) {
 				workDone = true
 			}
 
 			// STEP 2: Process incoming RX packets
-			if b.processRXQueue() {
+			if processRXQueue(b) {
 				workDone = true
 			}
 
 			// STEP 3: Maintain Fill queue
-			b.maintainFillQueue()
+			maintainFillQueue(b)
 
 			if workDone {
 				sleepDuration = minSleep
@@ -185,7 +161,7 @@ func (b *NetstackBridge) StartPacketProcessing() {
 }
 
 // Process TX completion queue
-func (b *NetstackBridge) processCompletionQueue() bool {
+func processCompletionQueue(b *cfg.NetstackBridge) bool {
 	b.Cb.UMEM.Lock()
 	nCompleted, completionIndex := b.Cb.Completion.Peek()
 	if nCompleted > 0 {
@@ -218,7 +194,7 @@ func (b *NetstackBridge) processCompletionQueue() bool {
 }
 
 // Process RX queue with batch processing
-func (b *NetstackBridge) processRXQueue() bool {
+func processRXQueue(b *cfg.NetstackBridge) bool {
 	b.Cb.UMEM.Lock()
 	nReceived, index := b.Cb.RX.Peek()
 	if nReceived == 0 {
@@ -230,11 +206,11 @@ func (b *NetstackBridge) processRXQueue() bool {
 	for i := uint32(0); i < nReceived; i++ {
 		desc := b.Cb.RX.Get(index + i)
 		packetData := b.Cb.UMEM.Get(desc)
-		pkt := RxPacket{
-			buffer:    packetData,
-			frameAddr: uint64(desc.Addr),
+		pkt := cfg.RxPacket{
+			Buffer:    packetData,
+			FrameAddr: uint64(desc.Addr),
 		}
-		b.RxRing.Push(pkt)
+		PushRxPacket(b.RxRing, pkt)
 	}
 
 	b.Cb.RX.Release(nReceived)
@@ -246,12 +222,12 @@ func (b *NetstackBridge) processRXQueue() bool {
 	framesToFree = framesToFree[:0]
 
 	for {
-		pkt, ok := b.RxRing.Pop()
+		pkt, ok := PopRxPacket(b.RxRing)
 		if !ok {
 			break
 		}
-		b.processPacket(pkt.buffer)
-		framesToFree = append(framesToFree, pkt.frameAddr)
+		processPacket(b, pkt.Buffer)
+		framesToFree = append(framesToFree, pkt.FrameAddr)
 	}
 
 	// Batch free RX frames
@@ -267,13 +243,13 @@ func (b *NetstackBridge) processRXQueue() bool {
 	return true
 }
 
-func (b *NetstackBridge) maintainFillQueue() {
+func maintainFillQueue(b *cfg.NetstackBridge) {
 	b.Cb.UMEM.Lock()
 	b.Cb.Fill.FillAll(&b.Cb.UMEM)
 	b.Cb.UMEM.Unlock()
 }
 
-func (b *NetstackBridge) handleOutboundPackets() {
+func handleOutboundPackets(b *cfg.NetstackBridge) {
 
 	ctx := context.Background()
 	for {
@@ -283,21 +259,20 @@ func (b *NetstackBridge) handleOutboundPackets() {
 			continue
 		}
 		data := pkt.ToView().AsSlice()
-		b.sendPacketTX(data)
+		sendPacketTX(b, data)
 		pkt.DecRef()
 	}
 }
 
-func (b *NetstackBridge) sendPacketTX(ipData []byte) {
+func sendPacketTX(b *cfg.NetstackBridge, ipData []byte) {
 	if len(ipData) < cfg.IpHeaderMinSize {
 		return
 	}
 
-	if !b.TxRing.Push(ipData) {
+	if !PushTxPacket(b.TxRing, ipData) {
 		return
 	}
 
-	// Process multiple packets in one lock cycle
 	b.Cb.UMEM.Lock()
 	defer b.Cb.UMEM.Unlock()
 
@@ -332,7 +307,7 @@ func (b *NetstackBridge) sendPacketTX(ipData []byte) {
 	maxBatch := 16 // Process up to 16 packets per lock cycle
 
 	for packetsProcessed < maxBatch {
-		data, ok := b.TxRing.Pop()
+		data, ok := PopTxPacket(b.TxRing)
 		if !ok {
 			break
 		}
@@ -340,21 +315,21 @@ func (b *NetstackBridge) sendPacketTX(ipData []byte) {
 		// SECOND: Try to reserve a TX descriptor
 		nReserved, index := b.Cb.TX.Reserve(&b.Cb.UMEM, 1)
 		if nReserved == 0 {
-			b.TxRing.Push(data)
+			PushTxPacket(b.TxRing, data)
 			break
 		}
 
 		// THIRD: Get free frame for packet
 		frameAddr := b.Cb.UMEM.AllocFrame()
 		if frameAddr == 0 {
-			b.TxRing.Push(data)
+			PushTxPacket(b.TxRing, data)
 			break
 		}
 
 		frame := b.Cb.UMEM.Get(unix.XDPDesc{Addr: frameAddr, Len: uint32(cfg.EthHeaderSize + len(data))})
 		if len(frame) < cfg.EthHeaderSize+len(data) || cfg.EthHeaderSize+len(data) > cfg.FrameSize {
 			b.Cb.UMEM.FreeFrame(frameAddr)
-			b.TxRing.Push(data)
+			PushTxPacket(b.TxRing, data)
 			break
 		}
 
@@ -374,7 +349,7 @@ func (b *NetstackBridge) sendPacketTX(ipData []byte) {
 	}
 }
 
-func (b *NetstackBridge) processPacket(packetData []byte) {
+func processPacket(b *cfg.NetstackBridge, packetData []byte) {
 	if len(packetData) < (cfg.EthHeaderSize + cfg.IpHeaderMinSize) {
 		return
 	}

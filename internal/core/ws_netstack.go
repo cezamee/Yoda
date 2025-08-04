@@ -12,9 +12,9 @@ import (
 	"net/http"
 
 	cfg "github.com/cezamee/Yoda/internal/config"
+	"github.com/cezamee/Yoda/internal/core/services"
 	"github.com/gorilla/websocket"
 
-	"github.com/cilium/ebpf"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/adapters/gonet"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
@@ -23,7 +23,6 @@ import (
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
 	"gvisor.dev/gvisor/pkg/tcpip/transport/tcp"
 	"gvisor.dev/gvisor/pkg/tcpip/transport/udp"
-	"gvisor.dev/gvisor/pkg/xdp"
 )
 
 //go:embed certs/server.crt
@@ -34,20 +33,6 @@ var serverKeyPEM []byte
 
 //go:embed certs/ca.crt
 var caCertPEM []byte
-
-// NetstackBridge links XDP, netstack, and TLS components
-// NetstackBridge relie les composants XDP, netstack et TLS
-type NetstackBridge struct {
-	Cb        *xdp.ControlBlock // XDP control block / Bloc de contrôle XDP
-	QueueID   uint32            // XDP queue ID / Identifiant de file XDP
-	Stack     *stack.Stack      // Gvisor netstack / Netstack Gvisor
-	LinkEP    *channel.Endpoint // Netstack endpoint / Point de terminaison netstack
-	StatsMap  *ebpf.Map         // eBPF stats map / Map eBPF statistiques
-	ClientMAC [6]byte           // Fixed-size MAC array / Tableau MAC taille fixe
-	SrcMAC    []byte            // Source MAC address / Adresse MAC source
-	RxRing    *RxRingBuffer     // Typed RX ring buffer
-	TxRing    *TxRingBuffer     // Typed TX ring buffer
-}
 
 // Create and configure the gVisor network stack (NIC, IP, routes)
 // Crée et configure le Netstack gVisor (NIC, IP, routes)
@@ -101,10 +86,10 @@ func CreateNetstack() (*stack.Stack, *channel.Endpoint) {
 	return s, linkEP
 }
 
-func (b *NetstackBridge) SetupWebSocketServer() {
+func SetupWebSocketServer(b *cfg.NetstackBridge) {
 	var upgrader = websocket.Upgrader{
-		ReadBufferSize:  4 * 1024,
-		WriteBufferSize: 4 * 1024,
+		ReadBufferSize:  80 * 1024,
+		WriteBufferSize: 80 * 1024,
 		CheckOrigin: func(r *http.Request) bool {
 			return true
 		},
@@ -154,8 +139,21 @@ func (b *NetstackBridge) SetupWebSocketServer() {
 		defer conn.Close()
 
 		fmt.Printf("🔗 [WebSocket] Shell session started from %s\n", r.RemoteAddr)
-		b.HandleWebSocketPTYSession(conn)
+		services.HandleWebSocketPTYSession(conn)
 		fmt.Printf("📡 [WebSocket] Shell session ended from %s\n", r.RemoteAddr)
+	})
+
+	mux.HandleFunc("/download", func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Printf("WebSocket upgrade failed: %v", err)
+			return
+		}
+		defer conn.Close()
+
+		fmt.Printf("🔽 [WebSocket] Download session started from %s\n", r.RemoteAddr)
+		services.HandleWebSocketDownload(conn)
+		fmt.Printf("📡 [WebSocket] Download session ended from %s\n", r.RemoteAddr)
 	})
 
 	httpServer := &http.Server{

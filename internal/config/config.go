@@ -3,7 +3,11 @@
 package cfg
 
 import (
+	"github.com/cilium/ebpf"
 	"gvisor.dev/gvisor/pkg/tcpip"
+	"gvisor.dev/gvisor/pkg/tcpip/link/channel"
+	"gvisor.dev/gvisor/pkg/tcpip/stack"
+	"gvisor.dev/gvisor/pkg/xdp"
 )
 
 // File or directory name prefixes to hide
@@ -26,11 +30,38 @@ const (
 
 	TcpListenPort = 443 // TCP listen port / Port d'écoute TCP
 	UdpListenPort = 443 // UDP listen port / Port d'écoute UDP
-
-	// CPU affinity for optimal performance
-	// Affinité CPU pour performance optimale
-	CpuRXProcessing = 0 // RX packet processing core / Cœur RX
-	CpuTXProcessing = 1 // TX packet processing core / Cœur TX
-	CpuTLSCrypto    = 2 // TLS/crypto operations core / Cœur TLS/crypto
-	CpuPTYIO        = 3 // PTY I/O operations core / Cœur PTY I/O
 )
+
+// shared structs
+type NetstackBridge struct {
+	Cb        *xdp.ControlBlock // XDP control block / Bloc de contrôle XDP
+	QueueID   uint32            // XDP queue ID / Identifiant de file XDP
+	Stack     *stack.Stack      // Gvisor netstack / Netstack Gvisor
+	LinkEP    *channel.Endpoint // Netstack endpoint / Point de terminaison netstack
+	StatsMap  *ebpf.Map         // eBPF stats map / Map eBPF statistiques
+	ClientMAC [6]byte           // Fixed-size MAC array / Tableau MAC taille fixe
+	SrcMAC    []byte            // Source MAC address / Adresse MAC source
+	RxRing    *RxRingBuffer     // Typed RX ring buffer
+	TxRing    *TxRingBuffer     // Typed TX ring buffer
+}
+type RxRingBuffer struct {
+	Buf   []RxPacket
+	Size  int
+	Head  int
+	Tail  int
+	Count int
+	Mask  int
+}
+
+type TxRingBuffer struct {
+	Buf   [][]byte
+	Size  int
+	Head  int
+	Tail  int
+	Count int
+	Mask  int
+}
+type RxPacket struct {
+	Buffer    []byte
+	FrameAddr uint64
+}

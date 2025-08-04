@@ -1,6 +1,6 @@
 // TLS PTY session handler: launches interactive shell over TLS, manages terminal size and I/O
 // Handler de session PTY TLS : lance un shell interactif via TLS, gère la taille du terminal et les flux I/O
-package core
+package services
 
 import (
 	"encoding/json"
@@ -23,7 +23,7 @@ type WSMessage struct {
 
 // Handle a WebSocket PTY session: start bash, negotiate terminal size, and relay I/O
 // Gère une session PTY WebSocket : démarre bash, négocie la taille du terminal, relaie les flux I/O
-func (b *NetstackBridge) HandleWebSocketPTYSession(conn *websocket.Conn) {
+func HandleWebSocketPTYSession(conn *websocket.Conn) {
 	cmd := exec.Command("/bin/bash", "-l", "-i")
 	cmd.Env = []string{
 		"TERM=xterm-256color",

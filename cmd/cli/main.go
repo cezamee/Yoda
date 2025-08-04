@@ -1,18 +1,17 @@
-// Yoda WebSocket client: direct shell connection
+// Yoda WebSocket client: direct shell connection and file download
 package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "yoda",
-	Short: "Yoda remote shell client",
-	Long: `Yoda is a secure WebSocket-based remote shell client.
-It connects to a Yoda server over mTLS WebSocket to provide 
-interactive shell access with advanced features.`,
+	Use:   filepath.Base(os.Args[0]),
+	Short: "Yoda remote client",
 	CompletionOptions: cobra.CompletionOptions{
 		DisableDefaultCmd: true,
 	},
@@ -21,16 +20,71 @@ interactive shell access with advanced features.`,
 var shellCmd = &cobra.Command{
 	Use:   "shell",
 	Short: "Connect to remote shell",
-	Long: `Connect to the remote Yoda server and start an interactive shell session.
-This command establishes a secure WebSocket connection over mTLS.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("🚀 Connecting to Yoda shell...")
-		runShellSession()
+
+		conn, err := createSecureWebSocketConnection("/shell")
+		if err != nil {
+			fmt.Printf("❌ %v\n", err)
+			return
+		}
+		defer conn.Close()
+
+		runShellSession(conn)
+	},
+}
+
+var downloadCmd = &cobra.Command{
+	Use:   "download <remote_path> <local_path>",
+	Short: "Download a file from the remote server",
+	Long: "Download a file from the remote server via secure WebSocket connection.\n\n" +
+		"Syntax: download <remote_path> <local_path>\n\n" +
+		"Examples:\n" +
+		"  " + filepath.Base(os.Args[0]) + " download /etc/passwd ./passwd\n",
+	Args: cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("🔽 Initiating file download...")
+
+		conn, err := createSecureWebSocketConnection("/download")
+		if err != nil {
+			fmt.Printf("❌ %v\n", err)
+			return
+		}
+		defer conn.Close()
+
+		downloadCommand(conn, args)
+	},
+}
+
+var completionCmd = &cobra.Command{
+	Use:   "completion [bash|zsh|fish]",
+	Short: "Generate shell completion script",
+	Long: "To load completions:\n\n" +
+		"  Bash:\n" +
+		"   source <(./" + filepath.Base(os.Args[0]) + " completion bash)\n\n" +
+		"  Zsh:\n" +
+		"   echo \"autoload -U compinit; compinit\" >> ~/.zshrc\n" +
+		"   ./" + filepath.Base(os.Args[0]) + " completion zsh > \"${fpath[1]}/_" + filepath.Base(os.Args[0]) + "\"\n\n" +
+		"  Fish:\n" +
+		"   ./" + filepath.Base(os.Args[0]) + " completion fish | source\n",
+	Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+	ValidArgs: []string{"bash", "zsh", "fish"},
+	Run: func(cmd *cobra.Command, args []string) {
+		switch args[0] {
+		case "bash":
+			rootCmd.GenBashCompletion(cmd.OutOrStdout())
+		case "zsh":
+			rootCmd.GenZshCompletion(cmd.OutOrStdout())
+		case "fish":
+			rootCmd.GenFishCompletion(cmd.OutOrStdout(), true)
+		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(shellCmd)
+	rootCmd.AddCommand(downloadCmd)
+	rootCmd.AddCommand(completionCmd)
 }
 
 func main() {

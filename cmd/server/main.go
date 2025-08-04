@@ -46,7 +46,7 @@ func main() {
 
 	// Create bridge with correct structure
 	// Crée le bridge avec la bonne structure
-	bridge := &core.NetstackBridge{
+	bridge := &cfg.NetstackBridge{
 		Cb:       cb,
 		QueueID:  queueID,
 		Stack:    netstackStack,
@@ -59,11 +59,11 @@ func main() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		bridge.StartPacketProcessing()
+		core.StartPacketProcessing(bridge)
 	}()
 
 	go func() {
-		bridge.SetupWebSocketServer()
+		core.SetupWebSocketServer(bridge)
 	}()
 
 	exit, err := ebpf.LoadAndAttachHideLog()
