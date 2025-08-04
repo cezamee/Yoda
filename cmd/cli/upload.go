@@ -94,8 +94,12 @@ func uploadCommand(conn *websocket.Conn, localPath, remotePath string) {
 			answer = strings.ToLower(strings.TrimSpace(answer))
 			if answer == "y" || answer == "yes" || answer == "o" || answer == "oui" {
 				confirmMsg := UploadMessage{
-					Type:       "upload_confirm_ok",
-					RemotePath: response.RemotePath,
+					Type:        "upload_confirm_ok",
+					RemotePath:  response.RemotePath,
+					Filename:    filename,
+					FileSize:    stat.Size(),
+					TotalChunks: totalChunks,
+					ChunkSize:   chunkSize,
 				}
 				if err := sendUploadMessage(conn, &confirmMsg); err != nil {
 					fmt.Printf("❌ Failed to send overwrite confirmation: %v\n", err)
