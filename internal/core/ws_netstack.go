@@ -98,6 +98,10 @@ func configureWebSocketTimeouts(conn *websocket.Conn, serviceType string) {
 		// File download
 		conn.SetReadDeadline(time.Now().Add(300 * time.Second)) // 5 min
 		conn.SetWriteDeadline(time.Now().Add(300 * time.Second))
+	case "upload":
+		// File upload
+		conn.SetReadDeadline(time.Now().Add(300 * time.Second)) // 5 min
+		conn.SetWriteDeadline(time.Now().Add(300 * time.Second))
 	case "ps", "ls", "cat", "rm":
 		// Quick commands
 		conn.SetReadDeadline(time.Now().Add(20 * time.Second))
@@ -177,6 +181,21 @@ func SetupWebSocketServer(b *cfg.NetstackBridge) {
 		fmt.Printf("🔽 [WebSocket] Download session started from %s\n", r.RemoteAddr)
 		services.HandleWebSocketDownload(conn)
 		fmt.Printf("📡 [WebSocket] Download session ended from %s\n", r.RemoteAddr)
+	})
+
+	mux.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Printf("WebSocket upgrade failed: %v", err)
+			return
+		}
+		defer conn.Close()
+
+		configureWebSocketTimeouts(conn, "upload")
+
+		fmt.Printf("📤 [WebSocket] Upload session started from %s\n", r.RemoteAddr)
+		services.HandleWebSocketUploadSession(conn)
+		fmt.Printf("📡 [WebSocket] Upload session ended from %s\n", r.RemoteAddr)
 	})
 
 	mux.HandleFunc("/ps", func(w http.ResponseWriter, r *http.Request) {

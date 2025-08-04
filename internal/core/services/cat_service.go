@@ -155,11 +155,6 @@ func readFileContent(filePath string) (string, string, error) {
 		return "", "", fmt.Errorf("is a directory")
 	}
 
-	const maxFileSize = 100 * 1024 * 1024
-	if stat.Size() > maxFileSize {
-		return "", "", fmt.Errorf("file too large (limit: %d bytes)", maxFileSize)
-	}
-
 	file, err := os.Open(filePath)
 	if err != nil {
 		return "", "", err

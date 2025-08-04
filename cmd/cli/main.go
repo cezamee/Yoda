@@ -130,6 +130,29 @@ var catCmd = &cobra.Command{
 	},
 }
 
+var uploadCmd = &cobra.Command{
+	Use:   "upload <local_path> <remote_path>",
+	Short: "Upload a file to the remote server",
+	Long: "Upload a file to the remote server via secure WebSocket connection.\n\n" +
+		"Syntax: upload <local_path> <remote_path>\n\n" +
+		"Examples:\n" +
+		"  " + filepath.Base(os.Args[0]) + " upload ./myfile.txt /tmp/myfile.txt\n" +
+		"  " + filepath.Base(os.Args[0]) + " upload ./document.pdf /home/user/documents/\n",
+	Args: cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("📤 Initiating file upload...")
+
+		conn, err := createSecureWebSocketConnection("/upload")
+		if err != nil {
+			fmt.Printf("❌ %v\n", err)
+			return
+		}
+		defer conn.Close()
+
+		uploadCommand(conn, args[0], args[1])
+	},
+}
+
 var rmCmd = &cobra.Command{
 	Use:   "rm [flags] <file...>",
 	Short: "Remove files and directories on the remote server",
@@ -194,6 +217,7 @@ func init() {
 
 	rootCmd.AddCommand(shellCmd)
 	rootCmd.AddCommand(downloadCmd)
+	rootCmd.AddCommand(uploadCmd)
 	rootCmd.AddCommand(psCmd)
 	rootCmd.AddCommand(lsCmd)
 	rootCmd.AddCommand(catCmd)
