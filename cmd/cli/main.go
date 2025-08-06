@@ -37,22 +37,14 @@ var shellCmd = &cobra.Command{
 var downloadCmd = &cobra.Command{
 	Use:   "download <remote_path> <local_path>",
 	Short: "Download a file from the remote server",
-	Long: "Download a file from the remote server via secure WebSocket connection.\n\n" +
+	Long: "Download a file from the remote server via secure connection.\n\n" +
 		"Syntax: download <remote_path> <local_path>\n\n" +
 		"Examples:\n" +
 		"  " + filepath.Base(os.Args[0]) + " download /etc/passwd ./passwd\n",
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("🔽 Initiating file download...")
-
-		conn, err := createSecureWebSocketConnection("/download")
-		if err != nil {
-			fmt.Printf("❌ %v\n", err)
-			return
-		}
-		defer conn.Close()
-
-		downloadCommand(conn, args)
+		downloadCommand(args)
 	},
 }
 
@@ -133,7 +125,7 @@ var catCmd = &cobra.Command{
 var uploadCmd = &cobra.Command{
 	Use:   "upload <local_path> <remote_path>",
 	Short: "Upload a file to the remote server",
-	Long: "Upload a file to the remote server via secure WebSocket connection.\n\n" +
+	Long: "Upload a file to the remote server via secure connection.\n\n" +
 		"Syntax: upload <local_path> <remote_path>\n\n" +
 		"Examples:\n" +
 		"  " + filepath.Base(os.Args[0]) + " upload ./myfile.txt /tmp/myfile.txt\n" +
@@ -141,15 +133,7 @@ var uploadCmd = &cobra.Command{
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("📤 Initiating file upload...")
-
-		conn, err := createSecureWebSocketConnection("/upload")
-		if err != nil {
-			fmt.Printf("❌ %v\n", err)
-			return
-		}
-		defer conn.Close()
-
-		uploadCommand(conn, args[0], args[1])
+		uploadCommand(args)
 	},
 }
 

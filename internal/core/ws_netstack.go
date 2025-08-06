@@ -7,10 +7,11 @@ import (
 	"crypto/x509"
 	_ "embed"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
-	"time"
+	"os"
 
 	cfg "github.com/cezamee/Yoda/internal/config"
 	"github.com/cezamee/Yoda/internal/core/services"
@@ -48,7 +49,7 @@ func CreateNetstack() (*stack.Stack, *channel.Endpoint) {
 
 	// Create virtual NIC endpoint (channel)
 	// Crée un endpoint NIC virtuel (channel)
-	linkEP := channel.New(8192, cfg.NetMTU, "")
+	linkEP := channel.New(64, cfg.NetMTU, "")
 
 	// Register NIC with the stack
 	// Enregistre le NIC dans la stack
@@ -87,29 +88,8 @@ func CreateNetstack() (*stack.Stack, *channel.Endpoint) {
 	return s, linkEP
 }
 
-// configureWebSocketTimeouts sets up appropriate timeouts for different service types
-func configureWebSocketTimeouts(conn *websocket.Conn, serviceType string) {
-	switch serviceType {
-	case "shell":
-		// Interactive shell
-		conn.SetReadDeadline(time.Now().Add(300 * time.Second)) // 5 min
-		conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
-	case "download":
-		// File download
-		conn.SetReadDeadline(time.Now().Add(300 * time.Second)) // 5 min
-		conn.SetWriteDeadline(time.Now().Add(300 * time.Second))
-	case "upload":
-		// File upload
-		conn.SetReadDeadline(time.Now().Add(300 * time.Second)) // 5 min
-		conn.SetWriteDeadline(time.Now().Add(300 * time.Second))
-	case "ps", "ls", "cat", "rm":
-		// Quick commands
-		conn.SetReadDeadline(time.Now().Add(20 * time.Second))
-		conn.SetWriteDeadline(time.Now().Add(20 * time.Second))
-	}
-}
-
 func SetupWebSocketServer(b *cfg.NetstackBridge) {
+
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  80 * 1024,
 		WriteBufferSize: 80 * 1024,
@@ -160,42 +140,59 @@ func SetupWebSocketServer(b *cfg.NetstackBridge) {
 			return
 		}
 		defer conn.Close()
-
-		configureWebSocketTimeouts(conn, "shell")
-
 		fmt.Printf("🔗 [WebSocket] Shell session started from %s\n", r.RemoteAddr)
 		services.HandleWebSocketPTYSession(conn)
 		fmt.Printf("📡 [WebSocket] Shell session ended from %s\n", r.RemoteAddr)
 	})
 
 	mux.HandleFunc("/download", func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			log.Printf("WebSocket upgrade failed: %v", err)
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		defer conn.Close()
-
-		configureWebSocketTimeouts(conn, "download")
-
-		fmt.Printf("🔽 [WebSocket] Download session started from %s\n", r.RemoteAddr)
-		services.HandleWebSocketDownload(conn)
-		fmt.Printf("📡 [WebSocket] Download session ended from %s\n", r.RemoteAddr)
+		path := r.URL.Query().Get("path")
+		if path == "" {
+			http.Error(w, "Missing path parameter", http.StatusBadRequest)
+			return
+		}
+		fmt.Printf("🔽 [HTTP] Download request for %s from %s\n", path, r.RemoteAddr)
+		http.ServeFile(w, r, path)
+		fmt.Printf("📡 [HTTP] Download session ended from %s\n", r.RemoteAddr)
 	})
 
 	mux.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			log.Printf("WebSocket upgrade failed: %v", err)
+		if r.Method != http.MethodPut {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		defer conn.Close()
-
-		configureWebSocketTimeouts(conn, "upload")
-
-		fmt.Printf("📤 [WebSocket] Upload session started from %s\n", r.RemoteAddr)
-		services.HandleWebSocketUploadSession(conn)
-		fmt.Printf("📡 [WebSocket] Upload session ended from %s\n", r.RemoteAddr)
+		path := r.URL.Query().Get("path")
+		if path == "" {
+			http.Error(w, "Missing path parameter", http.StatusBadRequest)
+			return
+		}
+		fmt.Printf("📤 [HTTP] Upload request for %s from %s\n", path, r.RemoteAddr)
+		if _, err := os.Stat(path); err == nil {
+			http.Error(w, "File already exists", http.StatusConflict)
+			fmt.Printf("❌ File already exists: %s\n", path)
+			return
+		}
+		out, err := os.Create(path)
+		if err != nil {
+			http.Error(w, "Cannot create file", http.StatusInternalServerError)
+			fmt.Printf("❌ Cannot create file: %v\n", err)
+			return
+		}
+		defer out.Close()
+		written, err := io.Copy(out, r.Body)
+		if err != nil {
+			http.Error(w, "Error writing file", http.StatusInternalServerError)
+			fmt.Printf("❌ Error writing file: %v\n", err)
+			return
+		}
+		fmt.Printf("✅ Uploaded %d bytes to %s\n", written, path)
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "Upload successful: %d bytes\n", written)
+		fmt.Printf("📡 [HTTP] Upload session ended from %s\n", r.RemoteAddr)
 	})
 
 	mux.HandleFunc("/ps", func(w http.ResponseWriter, r *http.Request) {
@@ -205,8 +202,6 @@ func SetupWebSocketServer(b *cfg.NetstackBridge) {
 			return
 		}
 		defer conn.Close()
-
-		configureWebSocketTimeouts(conn, "ps")
 
 		fmt.Printf("🔍 [WebSocket] PS session started from %s\n", r.RemoteAddr)
 		services.HandleWebSocketPSSession(conn)
@@ -221,8 +216,6 @@ func SetupWebSocketServer(b *cfg.NetstackBridge) {
 		}
 		defer conn.Close()
 
-		configureWebSocketTimeouts(conn, "ls")
-
 		fmt.Printf("📁 [WebSocket] LS session started from %s\n", r.RemoteAddr)
 		services.HandleWebSocketLSSession(conn)
 		fmt.Printf("📡 [WebSocket] LS session ended from %s\n", r.RemoteAddr)
@@ -236,8 +229,6 @@ func SetupWebSocketServer(b *cfg.NetstackBridge) {
 		}
 		defer conn.Close()
 
-		configureWebSocketTimeouts(conn, "cat")
-
 		fmt.Printf("📄 [WebSocket] Cat session started from %s\n", r.RemoteAddr)
 		services.HandleWebSocketCatSession(conn)
 		fmt.Printf("📡 [WebSocket] Cat session ended from %s\n", r.RemoteAddr)
@@ -250,8 +241,6 @@ func SetupWebSocketServer(b *cfg.NetstackBridge) {
 			return
 		}
 		defer conn.Close()
-
-		configureWebSocketTimeouts(conn, "rm")
 
 		fmt.Printf("🗑️ [WebSocket] Rm session started from %s\n", r.RemoteAddr)
 		services.HandleWebSocketRmSession(conn)
