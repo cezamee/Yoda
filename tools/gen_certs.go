@@ -21,7 +21,7 @@ func main() {
 		os.Exit(1)
 	}
 	// Check cmd/cli/certs for client
-	if _, err := os.Stat("cmd/cli/certs"); os.IsNotExist(err) {
+	if _, err := os.Stat("cmd/cli/net/certs"); os.IsNotExist(err) {
 		fmt.Println("❌ The folder cmd/cli/certs does not exist. Please create it before running this script.")
 		os.Exit(1)
 	}
@@ -42,7 +42,7 @@ func main() {
 	}
 	caCertDER, _ := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caKey.PublicKey, caKey)
 	writePem("internal/core/certs/ca.crt", "CERTIFICATE", caCertDER)
-	writePem("cmd/cli/certs/ca.crt", "CERTIFICATE", caCertDER)
+	writePem("cmd/cli/net/certs/ca.crt", "CERTIFICATE", caCertDER)
 	writePem("internal/core/certs/ca.key", "RSA PRIVATE KEY", x509.MarshalPKCS1PrivateKey(caKey))
 
 	// 2. Server
@@ -81,8 +81,8 @@ func main() {
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 	}
 	clientCertDER, _ := x509.CreateCertificate(rand.Reader, clientTemplate, caTemplate, &clientKey.PublicKey, caKey)
-	writePem("cmd/cli/certs/client.crt", "CERTIFICATE", clientCertDER)
-	writePem("cmd/cli/certs/client.key", "RSA PRIVATE KEY", x509.MarshalPKCS1PrivateKey(clientKey))
+	writePem("cmd/cli/net/certs/client.crt", "CERTIFICATE", clientCertDER)
+	writePem("cmd/cli/net/certs/client.key", "RSA PRIVATE KEY", x509.MarshalPKCS1PrivateKey(clientKey))
 
 	fmt.Println("✅ Certificates generated")
 }
