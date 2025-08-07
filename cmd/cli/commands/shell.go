@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"encoding/json"
@@ -19,7 +19,7 @@ type WSMessage struct {
 }
 
 // runShellSession starts an interactive shell session using WebSocket streaming.
-func runShellSession(conn *websocket.Conn) {
+func RunShellSession(conn *websocket.Conn) {
 	fmt.Println("🔗 Connected to shell!")
 
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))

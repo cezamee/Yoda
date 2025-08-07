@@ -1,5 +1,5 @@
 // Upload command implementation for the CLI client using HTTP PUT
-package main
+package cli
 
 import (
 	"fmt"
@@ -9,9 +9,11 @@ import (
 	"os/signal"
 	"path/filepath"
 	"time"
+
+	"github.com/cezamee/Yoda/cmd/cli/net"
 )
 
-func uploadCommand(args []string) {
+func UploadCommand(args []string) {
 	interrupted := false
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
@@ -104,7 +106,7 @@ func uploadCommand(args []string) {
 		}
 	}()
 
-	resp, err := createSecureHTTPClient("PUT", query, pr)
+	resp, err := net.CreateSecureHTTPClient("PUT", query, pr)
 	if err != nil {
 		fmt.Printf("❌ Upload failed: %v\n", err)
 		return

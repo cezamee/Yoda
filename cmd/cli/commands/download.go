@@ -1,6 +1,6 @@
 // File download client: handles file download from server via HTTP GET
 
-package main
+package cli
 
 import (
 	"fmt"
@@ -8,9 +8,11 @@ import (
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/cezamee/Yoda/cmd/cli/net"
 )
 
-func downloadCommand(args []string) {
+func DownloadCommand(args []string) {
 	remotePath := args[0]
 	localPath := args[1]
 
@@ -36,7 +38,7 @@ func downloadCommand(args []string) {
 	}
 
 	query := fmt.Sprintf("/download?path=%s", remotePath)
-	resp, err := createSecureHTTPClient("GET", query, nil)
+	resp, err := net.CreateSecureHTTPClient("GET", query, nil)
 	if err != nil {
 		fmt.Printf("❌ Download failed: %v\n", err)
 		return
@@ -55,7 +57,7 @@ func downloadCommand(args []string) {
 		out.Close()
 		if interrupted {
 			os.Remove(localPath)
-			fmt.Printf("\n❌ Téléchargement annulé (Ctrl+C), fichier supprimé.\n")
+			fmt.Printf("\n❌ Download cancelled (Ctrl+C), file deleted.\n")
 		}
 	}()
 

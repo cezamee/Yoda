@@ -1,5 +1,5 @@
-// PS command implementation for the CLI client
-package main
+// Cat command implementation for the CLI client
+package cli
 
 import (
 	"encoding/json"
@@ -10,23 +10,26 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// PSMessage structure for WebSocket communication (matches server)
-type PSMessage struct {
-	Type    string `json:"type"`
-	Command string `json:"command,omitempty"`
-	Output  string `json:"output,omitempty"`
-	Error   string `json:"error,omitempty"`
+// CatMessage structure for WebSocket communication (matches server)
+type CatMessage struct {
+	Type     string `json:"type"`
+	Command  string `json:"command,omitempty"`
+	Output   string `json:"output,omitempty"`
+	Error    string `json:"error,omitempty"`
+	Filename string `json:"filename,omitempty"`
 }
 
-// psCommand handles the ps command execution
-func psCommand(conn *websocket.Conn, tree bool) {
-	command := "ps"
-	if tree {
-		command += " -t"
+// CatCommand handles the cat command execution
+func CatCommand(conn *websocket.Conn, args []string) {
+	if len(args) == 0 {
+		fmt.Printf("❌ Error: cat: missing file operand\n")
+		return
 	}
 
-	request := PSMessage{
-		Type:    "ps",
+	command := "cat " + strings.Join(args, " ")
+
+	request := CatMessage{
+		Type:    "cat",
 		Command: command,
 	}
 
@@ -35,13 +38,13 @@ func psCommand(conn *websocket.Conn, tree bool) {
 		fmt.Printf("❌ Failed to marshal request: %v\n", err)
 		return
 	}
-
 	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 
 	if err := conn.WriteMessage(websocket.TextMessage, requestBytes); err != nil {
 		fmt.Printf("❌ Failed to send request: %v\n", err)
 		return
 	}
+
 	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 
 	_, responseBytes, err := conn.ReadMessage()
@@ -54,7 +57,7 @@ func psCommand(conn *websocket.Conn, tree bool) {
 		return
 	}
 
-	var response PSMessage
+	var response CatMessage
 	if err := json.Unmarshal(responseBytes, &response); err != nil {
 		fmt.Printf("❌ Failed to unmarshal response: %v\n", err)
 		return
@@ -62,25 +65,17 @@ func psCommand(conn *websocket.Conn, tree bool) {
 
 	// Handle response
 	switch response.Type {
-	case "ps_result":
-		fmt.Printf("📋 Command: %s\n", response.Command)
-		fmt.Println("=" + strings.Repeat("=", 80))
-
-		lines := strings.Split(response.Output, "\n")
-		for i, line := range lines {
-			if i == 0 {
-				fmt.Printf("\033[1;36m%s\033[0m\n", line)
-			} else if strings.TrimSpace(line) != "" {
-				fmt.Println(line)
+	case "cat_result":
+		if strings.TrimSpace(response.Output) != "" {
+			fmt.Print(response.Output)
+			if !strings.HasSuffix(response.Output, "\n") {
+				fmt.Println()
 			}
 		}
-
-		fmt.Println("=" + strings.Repeat("=", 80))
 	case "error":
 		fmt.Printf("❌ Error: %s\n", response.Error)
 	default:
 		fmt.Printf("❌ Unknown response type: %s\n", response.Type)
 	}
-
 	conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 }

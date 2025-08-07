@@ -6,18 +6,20 @@
 
 
 ## 👀 Overview
-Yoda is an experimental network server using AF_XDP, eBPF, and a userspace TCP/IP stack (gVisor netstack). It provides stealth remote shell access using websocket, advanced packet filtering, and process hiding. All networking (TCP/IP) is handled outside the Linux kernel, entirely in userspace.
+Yoda is an experimental network server using AF_XDP, eBPF, and a userspace TCP/IP stack (gVisor netstack). It provides stealth remote shell access via websocket, advanced packet filtering, process and file hiding, and supports remote commands such as download, upload, and more. All networking (TCP/IP) is handled outside the Linux kernel, entirely in userspace.
 
 
 
 ## ✨ Features
-- **AF_XDP Packet I/O**
-- **eBPF/XDP Integration**
-- **gVisor Netstack** 
-- **mTLS/Websocket PTY Shell**
-- **Process, Binary & Networking Hiding**
-- **dmesg & journalctl log output cleaning**
-- **ip link output does not reveal XDP program attachment**
+
+- **AF_XDP Packet I/O:** High-performance userspace packet capture and injection.
+- **eBPF/XDP Integration:** Advanced filtering and stealth via custom eBPF programs.
+- **gVisor Netstack:** Full userspace TCP/IP stack, kernel bypass for all networking.
+- **mTLS/WebSocket PTY Shell:** Secure, stealth remote shell access over mutual TLS and WebSocket.
+-- **Native Remote Commands:** Built-in support for commands such as download, upload, ls, ps, cat, rm, etc.
+- **Process, Binary & Networking Hiding:** eBPF hooks to hide processes, binaries, files, and network activity.
+- **Log Output Cleaning:** Suppresses kernel warnings and traces in dmesg and journalctl.
+- **XDP Stealth:** XDP program attachment hidden from ip link output.
 
 
 ## ⚡ Quick Start
@@ -27,7 +29,7 @@ Requirements
 You need the following to build Yoda:
 
 - **Linux** (kernel 5.4+ recommended)
-- **Go 1.20+, protobuf-compiler**
+- **Go 1.20+**
 - **Python 3**
 - **Clang/LLVM, libbpf-dev, bpftool, make**
 - **Root privileges** (required for AF_XDP, eBPF)
@@ -73,7 +75,7 @@ sudo bin/yoda   # Run server
 
 On the client side use yoda cli and enjoy
 ```sh
-./yoda-client shell
+./yoda-client help
 ```
 
 

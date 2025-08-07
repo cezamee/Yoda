@@ -1,4 +1,4 @@
-package main
+package net
 
 import (
 	"crypto/tls"
@@ -23,7 +23,7 @@ var clientCertPEM []byte
 var clientKeyPEM []byte
 
 // createSecureWebSocketConnection creates a secure WebSocket connection with mutual TLS
-func createSecureWebSocketConnection(path string) (*websocket.Conn, error) {
+func CreateSecureWebSocketConnection(path string) (*websocket.Conn, error) {
 	cert, err := tls.X509KeyPair(clientCertPEM, clientKeyPEM)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load client cert/key: %v", err)
@@ -58,7 +58,7 @@ func createSecureWebSocketConnection(path string) (*websocket.Conn, error) {
 	return conn, nil
 }
 
-func createSecureHTTPClient(method, query string, body io.Reader) (*http.Response, error) {
+func CreateSecureHTTPClient(method, query string, body io.Reader) (*http.Response, error) {
 	cert, err := tls.X509KeyPair(clientCertPEM, clientKeyPEM)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load client cert/key: %v", err)

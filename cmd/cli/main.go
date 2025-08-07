@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	cli "github.com/cezamee/Yoda/cmd/cli/commands"
+	"github.com/cezamee/Yoda/cmd/cli/net"
 	"github.com/spf13/cobra"
 )
 
@@ -23,14 +25,14 @@ var shellCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("🚀 Connecting to Yoda shell...")
 
-		conn, err := createSecureWebSocketConnection("/shell")
+		conn, err := net.CreateSecureWebSocketConnection("/shell")
 		if err != nil {
 			fmt.Printf("❌ %v\n", err)
 			return
 		}
 		defer conn.Close()
 
-		runShellSession(conn)
+		cli.RunShellSession(conn)
 	},
 }
 
@@ -44,7 +46,7 @@ var downloadCmd = &cobra.Command{
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("🔽 Initiating file download...")
-		downloadCommand(args)
+		cli.DownloadCommand(args)
 	},
 }
 
@@ -62,14 +64,14 @@ var psCmd = &cobra.Command{
 
 		fmt.Println("🔍 Fetching process list...")
 
-		conn, err := createSecureWebSocketConnection("/ps")
+		conn, err := net.CreateSecureWebSocketConnection("/ps")
 		if err != nil {
 			fmt.Printf("❌ %v\n", err)
 			return
 		}
 		defer conn.Close()
 
-		psCommand(conn, tree)
+		cli.PsCommand(conn, tree)
 	},
 }
 
@@ -86,14 +88,14 @@ var lsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("📁 Listing files...")
 
-		conn, err := createSecureWebSocketConnection("/ls")
+		conn, err := net.CreateSecureWebSocketConnection("/ls")
 		if err != nil {
 			fmt.Printf("❌ %v\n", err)
 			return
 		}
 		defer conn.Close()
 
-		lsCommand(conn, args)
+		cli.LsCommand(conn, args)
 	},
 }
 
@@ -111,14 +113,14 @@ var catCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("📄 Reading file contents...")
 
-		conn, err := createSecureWebSocketConnection("/cat")
+		conn, err := net.CreateSecureWebSocketConnection("/cat")
 		if err != nil {
 			fmt.Printf("❌ %v\n", err)
 			return
 		}
 		defer conn.Close()
 
-		catCommand(conn, args)
+		cli.CatCommand(conn, args)
 	},
 }
 
@@ -133,7 +135,7 @@ var uploadCmd = &cobra.Command{
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("📤 Initiating file upload...")
-		uploadCommand(args)
+		cli.UploadCommand(args)
 	},
 }
 
@@ -157,14 +159,14 @@ var rmCmd = &cobra.Command{
 
 		fmt.Println("🗑️ Removing files...")
 
-		conn, err := createSecureWebSocketConnection("/rm")
+		conn, err := net.CreateSecureWebSocketConnection("/rm")
 		if err != nil {
 			fmt.Printf("❌ %v\n", err)
 			return
 		}
 		defer conn.Close()
 
-		rmCommand(conn, args, recursive, force)
+		cli.RmCommand(conn, args, recursive, force)
 	},
 }
 

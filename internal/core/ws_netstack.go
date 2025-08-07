@@ -155,9 +155,9 @@ func SetupWebSocketServer(b *cfg.NetstackBridge) {
 			http.Error(w, "Missing path parameter", http.StatusBadRequest)
 			return
 		}
-		fmt.Printf("🔽 [HTTP] Download request for %s from %s\n", path, r.RemoteAddr)
+		fmt.Printf("🔽 [HTTPS] Download request for %s from %s\n", path, r.RemoteAddr)
 		http.ServeFile(w, r, path)
-		fmt.Printf("📡 [HTTP] Download session ended from %s\n", r.RemoteAddr)
+		fmt.Printf("📡 [HTTPS] Download session ended from %s\n", r.RemoteAddr)
 	})
 
 	mux.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
@@ -170,7 +170,7 @@ func SetupWebSocketServer(b *cfg.NetstackBridge) {
 			http.Error(w, "Missing path parameter", http.StatusBadRequest)
 			return
 		}
-		fmt.Printf("📤 [HTTP] Upload request for %s from %s\n", path, r.RemoteAddr)
+		fmt.Printf("📤 [HTTPS] Upload request for %s from %s\n", path, r.RemoteAddr)
 		if _, err := os.Stat(path); err == nil {
 			http.Error(w, "File already exists", http.StatusConflict)
 			fmt.Printf("❌ File already exists: %s\n", path)

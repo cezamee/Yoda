@@ -1,5 +1,5 @@
 // Rm command implementation for the CLI client
-package main
+package cli
 
 import (
 	"encoding/json"
@@ -20,7 +20,7 @@ type RmMessage struct {
 }
 
 // rmCommand handles the rm command execution
-func rmCommand(conn *websocket.Conn, args []string, recursive bool, force bool) {
+func RmCommand(conn *websocket.Conn, args []string, recursive bool, force bool) {
 	if len(args) == 0 {
 		fmt.Printf("❌ Error: rm: missing file operand\n")
 		return
