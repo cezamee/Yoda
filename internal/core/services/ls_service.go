@@ -1,5 +1,4 @@
 // Native Go file listing service: provides ls functionality with wildcard support over WebSocket
-// Service de listage de fichiers natif Go : fournit les fonctionnalités ls avec support des wildcards via WebSocket
 package services
 
 import (
@@ -15,7 +14,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// LSMessage structure for WebSocket communication
 type LSMessage struct {
 	Type    string `json:"type"`
 	Command string `json:"command,omitempty"`
@@ -23,7 +21,6 @@ type LSMessage struct {
 	Error   string `json:"error,omitempty"`
 }
 
-// FileInfo represents file information
 type FileInfo struct {
 	Name        string      `json:"name"`
 	Size        int64       `json:"size"`
@@ -36,7 +33,6 @@ type FileInfo struct {
 	Links       uint64      `json:"links"`
 }
 
-// HandleWebSocketLSSession handles ls commands over WebSocket
 func HandleWebSocketLSSession(conn *websocket.Conn) {
 	fmt.Printf("📁 Starting LS service session\n")
 
@@ -61,7 +57,6 @@ func HandleWebSocketLSSession(conn *websocket.Conn) {
 			return
 		}
 
-		// Handle close messages
 		if msgType == websocket.CloseMessage {
 			fmt.Printf("📡 Received close message from client\n")
 			return
@@ -82,7 +77,6 @@ func HandleWebSocketLSSession(conn *websocket.Conn) {
 	}
 }
 
-// handleLSCommand processes ls commands with wildcard support
 func handleLSCommand(conn *websocket.Conn, command string) {
 	args := strings.Fields(command)
 	var paths []string
@@ -153,7 +147,6 @@ func handleLSCommand(conn *websocket.Conn, command string) {
 	fmt.Printf("✅ LS command executed successfully\n")
 }
 
-// getFileList gets file information for a given path
 func getFileList(path string) ([]FileInfo, error) {
 	var files []FileInfo
 
@@ -200,7 +193,6 @@ func getFileList(path string) ([]FileInfo, error) {
 	return files, nil
 }
 
-// getFileInfo extracts detailed file information
 func getFileInfo(fullPath, displayName string) (FileInfo, error) {
 	var info FileInfo
 
@@ -229,7 +221,6 @@ func getFileInfo(fullPath, displayName string) (FileInfo, error) {
 	return info, nil
 }
 
-// getUserName gets username from UID
 func getUserName(uid uint32) string {
 	passwdData, err := os.ReadFile("/etc/passwd")
 	if err != nil {
@@ -251,7 +242,6 @@ func getUserName(uid uint32) string {
 	return fmt.Sprintf("%d", uid)
 }
 
-// getGroupName gets group name from GID
 func getGroupName(gid uint32) string {
 	groupData, err := os.ReadFile("/etc/group")
 	if err != nil {
@@ -273,7 +263,6 @@ func getGroupName(gid uint32) string {
 	return fmt.Sprintf("%d", gid)
 }
 
-// generateStructuredLSOutput creates ls output structured by directory
 func generateStructuredLSOutput(dirFiles map[string][]FileInfo, multipleTargets bool) string {
 	var output strings.Builder
 
@@ -298,11 +287,9 @@ func generateStructuredLSOutput(dirFiles map[string][]FileInfo, multipleTargets 
 	return output.String()
 }
 
-// generateLSOutput creates ls -al style output
 func generateLSOutput(files []FileInfo) string {
 	var output strings.Builder
 
-	// Sort files: directories first, then alphabetically
 	sort.Slice(files, func(i, j int) bool {
 		if files[i].Name == "." {
 			return true
@@ -358,7 +345,6 @@ func generateLSOutput(files []FileInfo) string {
 	return output.String()
 }
 
-// truncateField truncates a string to fit in a field
 func truncateField(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
@@ -366,7 +352,6 @@ func truncateField(s string, maxLen int) string {
 	return s[:maxLen-1] + "+"
 }
 
-// sendLSError sends an error message to the client
 func sendLSError(conn *websocket.Conn, errorMsg string) {
 	response := LSMessage{
 		Type:  "error",

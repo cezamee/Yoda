@@ -1,4 +1,4 @@
-// AF_XDP packet processing and optimization utilities
+// AF_XDP packet processing
 package core
 
 import (

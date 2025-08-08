@@ -1,5 +1,4 @@
 // Native Go process listing service: provides ps and pstree functionality over WebSocket
-// Service de listage des processus natif Go : fournit les fonctionnalités ps et pstree via WebSocket
 package services
 
 import (
@@ -12,7 +11,6 @@ import (
 	"github.com/shirou/gopsutil/v3/process"
 )
 
-// PSMessage structure for WebSocket communication
 type PSMessage struct {
 	Type    string `json:"type"`
 	Command string `json:"command,omitempty"`
@@ -20,7 +18,6 @@ type PSMessage struct {
 	Error   string `json:"error,omitempty"`
 }
 
-// ProcessInfo represents process information
 type ProcessInfo struct {
 	PID     int    `json:"pid"`
 	PPID    int    `json:"ppid"`
@@ -33,7 +30,6 @@ type ProcessInfo struct {
 	TTY     string `json:"tty"`
 }
 
-// HandleWebSocketPSSession handles ps commands over WebSocket
 func HandleWebSocketPSSession(conn *websocket.Conn) {
 	fmt.Printf("🔍 Starting PS service session\n")
 
@@ -58,7 +54,6 @@ func HandleWebSocketPSSession(conn *websocket.Conn) {
 			return
 		}
 
-		// Handle close messages
 		if msgType == websocket.CloseMessage {
 			fmt.Printf("📡 Received close message from client\n")
 			return
@@ -79,7 +74,6 @@ func HandleWebSocketPSSession(conn *websocket.Conn) {
 	}
 }
 
-// handleNativePSCommand processes ps commands
 func handleNativePSCommand(conn *websocket.Conn, command string) {
 	var output string
 	var cmdStr string
@@ -124,7 +118,6 @@ func handleNativePSCommand(conn *websocket.Conn, command string) {
 	fmt.Printf("✅ PS command executed successfully\n")
 }
 
-// getProcessList get all process information
 func getProcessList() ([]ProcessInfo, error) {
 	var processes []ProcessInfo
 
@@ -150,7 +143,6 @@ func getProcessList() ([]ProcessInfo, error) {
 	return processes, nil
 }
 
-// getProcessInfo extracts process information
 func getProcessInfo(proc *process.Process) (ProcessInfo, error) {
 	var info ProcessInfo
 
@@ -160,7 +152,6 @@ func getProcessInfo(proc *process.Process) (ProcessInfo, error) {
 		info.PPID = int(ppid)
 	}
 
-	// Get command
 	if cmdline, err := proc.Cmdline(); err == nil && cmdline != "" {
 		info.Command = cmdline
 	} else if name, err := proc.Name(); err == nil {
@@ -169,44 +160,36 @@ func getProcessInfo(proc *process.Process) (ProcessInfo, error) {
 		info.Command = "[unknown]"
 	}
 
-	// Get status/state
 	if status, err := proc.Status(); err == nil && len(status) > 0 {
 		info.State = status[0]
 	} else {
 		info.State = "?"
 	}
 
-	// Get username
 	if username, err := proc.Username(); err == nil {
 		info.User = username
 	} else {
 		info.User = "unknown"
 	}
 
-	// Get CPU percentage
 	if cpuPercent, err := proc.CPUPercent(); err == nil {
 		info.CPU = fmt.Sprintf("%.1f", cpuPercent)
 	} else {
 		info.CPU = "0.0"
 	}
 
-	// Get memory info (RSS in KB)
 	if memInfo, err := proc.MemoryInfo(); err == nil {
 		info.Memory = fmt.Sprintf("%d", memInfo.RSS/1024)
 	} else {
 		info.Memory = "0"
 	}
 
-	// TTY info - simplified
 	info.TTY = "?"
-
-	// Start time - simplified
 	info.Start = "00:00"
 
 	return info, nil
 }
 
-// truncateString truncates a string to a maximum length
 func truncateString(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
@@ -217,14 +200,12 @@ func truncateString(s string, maxLen int) string {
 	return s[:maxLen-3] + "..."
 }
 
-// generatePSAuxOutput creates ps aux style output
 func generatePSAuxOutput(processes []ProcessInfo) string {
 	var output strings.Builder
 
 	output.WriteString(fmt.Sprintf("%-12s %6s %8s %4s %s\n",
 		"USER", "PID", "MEM(KB)", "%CPU", "COMMAND"))
 
-	// Sort by PID
 	sort.Slice(processes, func(i, j int) bool {
 		return processes[i].PID < processes[j].PID
 	})
@@ -253,7 +234,6 @@ func generatePSAuxOutput(processes []ProcessInfo) string {
 	return output.String()
 }
 
-// generateProcessTree creates a process tree output
 func generateProcessTree(processes []ProcessInfo) string {
 	var output strings.Builder
 
@@ -268,7 +248,6 @@ func generateProcessTree(processes []ProcessInfo) string {
 		childMap[proc.PPID] = append(childMap[proc.PPID], proc)
 	}
 
-	// Sort children by PID
 	for ppid := range childMap {
 		sort.Slice(childMap[ppid], func(i, j int) bool {
 			return childMap[ppid][i].PID < childMap[ppid][j].PID
@@ -295,7 +274,6 @@ func generateProcessTree(processes []ProcessInfo) string {
 	return output.String()
 }
 
-// printProcessTree recursively prints the process tree
 func printProcessTree(output *strings.Builder, processMap map[int]ProcessInfo, childMap map[int][]ProcessInfo, pid int, prefix string, visited map[int]bool) {
 	if visited[pid] {
 		return
@@ -336,7 +314,6 @@ func printProcessTree(output *strings.Builder, processMap map[int]ProcessInfo, c
 	}
 }
 
-// sendPSError sends an error message to the client
 func sendPSError(conn *websocket.Conn, errorMsg string) {
 	response := PSMessage{
 		Type:  "error",

@@ -1,3 +1,4 @@
+// Package net provides utilities for creating secure WebSocket and HTTP connections.
 package net
 
 import (
@@ -23,7 +24,6 @@ var clientCertPEM []byte
 //go:embed certs/client.key
 var clientKeyPEM []byte
 
-// createSecureWebSocketConnection creates a secure WebSocket connection with mutual TLS
 func CreateSecureWebSocketConnection(path string) (*websocket.Conn, error) {
 	cert, err := tls.X509KeyPair(clientCertPEM, clientKeyPEM)
 	if err != nil {
@@ -47,7 +47,7 @@ func CreateSecureWebSocketConnection(path string) (*websocket.Conn, error) {
 
 	wsURL := url.URL{
 		Scheme: "wss",
-		Host:   fmt.Sprintf("%s:%d", cfg.NetLocalIP, cfg.TcpListenPort),
+		Host:   fmt.Sprintf("%s:%d", cfg.CliTargetIP, cfg.TcpListenPort),
 		Path:   path,
 	}
 
@@ -78,7 +78,7 @@ func CreateSecureHTTPClient(method, query string, body io.Reader) (*http.Respons
 	transport := &http.Transport{TLSClientConfig: tlsConfig}
 	client := &http.Client{Transport: transport}
 
-	url := fmt.Sprintf("https://%s:%d%s", cfg.NetLocalIP, cfg.TcpListenPort, query)
+	url := fmt.Sprintf("https://%s:%d%s", cfg.CliTargetIP, cfg.TcpListenPort, query)
 
 	var req *http.Request
 	switch method {
@@ -102,7 +102,6 @@ func CreateSecureHTTPClient(method, query string, body io.Reader) (*http.Respons
 	return resp, nil
 }
 
-// progressWriter displays download progress in the terminal
 type ProgressWriter struct {
 	Out          io.Writer
 	Total        *int64
@@ -112,7 +111,6 @@ type ProgressWriter struct {
 	ShowProgress bool
 }
 
-// Write implements io.Writer and prints progress every 500ms
 func (pw *ProgressWriter) Write(p []byte) (int, error) {
 	n, err := pw.Out.Write(p)
 	*pw.Total += int64(n)

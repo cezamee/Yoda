@@ -1,5 +1,5 @@
 // TLS PTY session handler: launches interactive shell over TLS, manages terminal size and I/O
-// Handler de session PTY TLS : lance un shell interactif via TLS, gère la taille du terminal et les flux I/O
+
 package services
 
 import (
@@ -13,7 +13,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// Message structure for WebSocket communication
 type WSMessage struct {
 	Type string `json:"type"`
 	Data []byte `json:"data,omitempty"`
@@ -21,8 +20,6 @@ type WSMessage struct {
 	Cols int    `json:"cols,omitempty"`
 }
 
-// Handle a WebSocket PTY session: start bash, negotiate terminal size, and relay I/O
-// Gère une session PTY WebSocket : démarre bash, négocie la taille du terminal, relaie les flux I/O
 func HandleWebSocketPTYSession(conn *websocket.Conn) {
 
 	cmd := exec.Command("/bin/bash", "-l", "-i")
@@ -64,7 +61,6 @@ func HandleWebSocketPTYSession(conn *websocket.Conn) {
 		}
 	}()
 
-	// Set default terminal size
 	rows, cols := 24, 80
 	_ = pty.Setsize(ptmx, &pty.Winsize{Rows: uint16(rows), Cols: uint16(cols)})
 
@@ -134,7 +130,6 @@ func HandleWebSocketPTYSession(conn *websocket.Conn) {
 				return
 			}
 
-			// Handle close messages
 			if msgType == websocket.CloseMessage {
 				fmt.Printf("📡 Received close message from client\n")
 				doneOnce.Do(func() { close(done) })
@@ -149,7 +144,6 @@ func HandleWebSocketPTYSession(conn *websocket.Conn) {
 			switch msg.Type {
 			case "data":
 				if len(msg.Data) > 0 {
-					// Check for Ctrl+D
 					if len(msg.Data) == 1 && msg.Data[0] == 4 {
 						doneOnce.Do(func() { close(done) })
 						fmt.Printf("📡 Ctrl+D received, closing PTY\n")

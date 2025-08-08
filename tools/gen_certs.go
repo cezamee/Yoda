@@ -22,7 +22,7 @@ func main() {
 	}
 	// Check cmd/cli/certs for client
 	if _, err := os.Stat("cmd/cli/net/certs"); os.IsNotExist(err) {
-		fmt.Println("❌ The folder cmd/cli/certs does not exist. Please create it before running this script.")
+		fmt.Println("❌ The folder cmd/cli/net/certs does not exist. Please create it before running this script.")
 		os.Exit(1)
 	}
 

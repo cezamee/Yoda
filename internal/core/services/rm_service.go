@@ -1,5 +1,4 @@
 // Native Go file removal service: provides rm functionality with wildcard support over WebSocket
-// Service de suppression de fichiers natif Go : fournit les fonctionnalités rm avec support des wildcards via WebSocket
 package services
 
 import (
@@ -12,7 +11,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// RmMessage structure for WebSocket communication
 type RmMessage struct {
 	Type    string `json:"type"`
 	Command string `json:"command,omitempty"`
@@ -21,7 +19,6 @@ type RmMessage struct {
 	Removed int    `json:"removed,omitempty"`
 }
 
-// HandleWebSocketRmSession handles rm commands over WebSocket
 func HandleWebSocketRmSession(conn *websocket.Conn) {
 	fmt.Printf("🗑️ Starting Rm service session\n")
 
@@ -46,7 +43,6 @@ func HandleWebSocketRmSession(conn *websocket.Conn) {
 			return
 		}
 
-		// Handle close messages
 		if msgType == websocket.CloseMessage {
 			fmt.Printf("📡 Received close message from client\n")
 			return
@@ -67,7 +63,6 @@ func HandleWebSocketRmSession(conn *websocket.Conn) {
 	}
 }
 
-// handleRmCommand processes rm commands with wildcard support
 func handleRmCommand(conn *websocket.Conn, command string) {
 	args := strings.Fields(command)
 	var paths []string
@@ -79,7 +74,6 @@ func handleRmCommand(conn *websocket.Conn, command string) {
 		return
 	}
 
-	// Parse flags
 	for i := 1; i < len(args); i++ {
 		arg := args[i]
 		if strings.HasPrefix(arg, "-") {
@@ -142,7 +136,6 @@ func handleRmCommand(conn *websocket.Conn, command string) {
 		}
 	}
 
-	// Build output with colored filenames
 	if totalRemoved > 0 {
 		if len(paths) > 1 || hasWildcards(paths) {
 			output.WriteString(fmt.Sprintf("\033[1;33mRemoved %d file(s) matching patterns:\033[0m\n", totalRemoved))
@@ -183,7 +176,6 @@ func handleRmCommand(conn *websocket.Conn, command string) {
 	fmt.Printf("✅ Rm command executed successfully\n")
 }
 
-// removeFile removes a file or directory
 func removeFile(filePath string, recursive bool, force bool) error {
 	stat, err := os.Stat(filePath)
 	if err != nil {
@@ -203,7 +195,6 @@ func removeFile(filePath string, recursive bool, force bool) error {
 	return os.Remove(filePath)
 }
 
-// sendRmError sends an error message to the client
 func sendRmError(conn *websocket.Conn, errorMsg string) {
 	response := RmMessage{
 		Type:  "error",

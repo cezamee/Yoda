@@ -1,5 +1,4 @@
 // gVisor Netstack initialization and WebSocket mTLS server setup
-// Initialisation du Netstack gVisor et configuration du serveur WebSocket mTLS
 package core
 
 import (
@@ -37,28 +36,23 @@ var serverKeyPEM []byte
 var caCertPEM []byte
 
 // Create and configure the gVisor network stack (NIC, IP, routes)
-// Crée et configure le Netstack gVisor (NIC, IP, routes)
 func CreateNetstack() (*stack.Stack, *channel.Endpoint) {
 
 	// Initialize stack with IPv4, TCP, UDP support
-	// Initialise la stack avec support IPv4, TCP, UDP
 	s := stack.New(stack.Options{
 		NetworkProtocols:   []stack.NetworkProtocolFactory{ipv4.NewProtocol},
 		TransportProtocols: []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol},
 	})
 
 	// Create virtual NIC endpoint (channel)
-	// Crée un endpoint NIC virtuel (channel)
 	linkEP := channel.New(64, cfg.NetMTU, "")
 
 	// Register NIC with the stack
-	// Enregistre le NIC dans la stack
 	if err := s.CreateNIC(cfg.NetNicID, linkEP); err != nil {
 		log.Fatalf("Failed to create NIC: %v", err)
 	}
 
 	// Assign IPv4 address to NIC
-	// Assigne une adresse IPv4 au NIC
 	protocolAddr := tcpip.ProtocolAddress{
 		Protocol: ipv4.ProtocolNumber,
 		AddressWithPrefix: tcpip.AddressWithPrefix{
@@ -68,13 +62,11 @@ func CreateNetstack() (*stack.Stack, *channel.Endpoint) {
 	}
 
 	// Add address to NIC
-	// Ajoute l'adresse au NIC
 	if err := s.AddProtocolAddress(cfg.NetNicID, protocolAddr, stack.AddressProperties{}); err != nil {
 		log.Fatalf("Failed to add address: %v", err)
 	}
 
-	// Add default route (gateway)
-	// Ajoute la route par défaut (gateway)
+	// Add default route
 	s.SetRouteTable([]tcpip.Route{
 		{
 			Destination: header.IPv4EmptySubnet,
@@ -84,7 +76,6 @@ func CreateNetstack() (*stack.Stack, *channel.Endpoint) {
 	})
 
 	// Return stack and NIC endpoint
-	// Retourne la stack et l'endpoint NIC
 	return s, linkEP
 }
 

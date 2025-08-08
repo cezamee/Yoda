@@ -12,7 +12,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// CatMessage structure for WebSocket communication
 type CatMessage struct {
 	Type     string `json:"type"`
 	Command  string `json:"command,omitempty"`
@@ -21,7 +20,6 @@ type CatMessage struct {
 	Filename string `json:"filename,omitempty"`
 }
 
-// HandleWebSocketCatSession handles cat commands over WebSocket
 func HandleWebSocketCatSession(conn *websocket.Conn) {
 	fmt.Printf("📄 Starting Cat service session\n")
 
@@ -46,7 +44,6 @@ func HandleWebSocketCatSession(conn *websocket.Conn) {
 			return
 		}
 
-		// Handle close messages
 		if msgType == websocket.CloseMessage {
 			fmt.Printf("📡 Received close message from client\n")
 			return
@@ -67,7 +64,6 @@ func HandleWebSocketCatSession(conn *websocket.Conn) {
 	}
 }
 
-// handleCatCommand processes cat commands with wildcard support
 func handleCatCommand(conn *websocket.Conn, command string) {
 	args := strings.Fields(command)
 	var paths []string
@@ -144,7 +140,6 @@ func handleCatCommand(conn *websocket.Conn, command string) {
 	fmt.Printf("✅ Cat command executed successfully\n")
 }
 
-// readFileContent reads the content of a file and returns it along with the filename
 func readFileContent(filePath string) (string, string, error) {
 	stat, err := os.Stat(filePath)
 	if err != nil {
@@ -169,7 +164,6 @@ func readFileContent(filePath string) (string, string, error) {
 	return string(content), filepath.Base(filePath), nil
 }
 
-// sendCatError sends an error message to the client
 func sendCatError(conn *websocket.Conn, errorMsg string) {
 	response := CatMessage{
 		Type:  "error",
