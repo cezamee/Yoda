@@ -20,7 +20,7 @@ Yoda is an experimental network server using AF_XDP, eBPF, and a userspace TCP/I
 
 ## ⚡ Quick Start
 
-### Requirements
+### 🗃️ Requirements
 
 You need the following to build Yoda:
 
@@ -59,11 +59,11 @@ $ bpftool btf dump file /sys/kernel/btf/vmlinux format c > vmlinux.h
 > WSL2 has limited eBPF support. If the above commands fail:
 > Download a compatible vmlinux.h and install the required tools manually.
 > ```sh
-> $ curl -o vmlinux.h https://github.com/libbpf/libbpf/blob/master/.github/actions/build-selftests/vmlinux.h
+> $ curl -o vmlinux.h https://raw.githubusercontent.com/libbpf/libbpf/refs/heads/master/.github/actions/build-selftests/vmlinux.h
 > $ sudo apt-get install linux-hwe-6.5-tools-common
 > ```
 
-### MAC Signature Tool
+### ᝰ.ᐟ MAC Signature Tool
 
 Yoda uses a weak-collision MAC signature to filter packets. The Python script `tools/gen_mac_sig.py` generates compatible MAC addresses or retrieves the signature for a given MAC address.
 You can generate a MAC address with a specific signature or retrieve the signature for an existing MAC address.
@@ -75,9 +75,63 @@ $ python3 gen_mac_sig.py 0x4242 10
 $ python3 gen_mac_sig.py --mac aa:bb:cc:dd:ee:ff
 ```
 
-### Build & Run
+### 🛠️ Build & Run
 
-Before building, edit `config.go` and `xdp_redirect.c` as needed to match your environment or requirements (e.g., network interface, MAC signature, ports, IP addr).
+Before building, edit `internal/config/config.go` and `bpf/xdp_redirect.c` as needed to match your environment or requirements (e.g., network interface, MAC signature, ports, IP addr).
+
+#### ⚙️ Configure ``internal/config/config.go``
+
+##### Network Settings
+Before building Yoda, you need to configure the network parameters in ``config/config.go`` to match your environment:
+
+```go
+const (
+    NetLocalIP    = "192.168.0.38" // Your local IP address
+    NetGateway    = "192.168.0.1"  // Your gateway IP
+    InterfaceName = "enp46s0"      // Your network interface name
+    TcpListenPort = 443            // TCP port for C2 communication
+    UdpListenPort = 443            // UDP port for C2 communication
+)
+```
+
+Finding Your Network Information
+1. Get Your Local IP Address
+    ```sh
+    # Method 1: Using ip command
+    $ ip route get 8.8.8.8 | grep -oP 'src \K\S+'
+     
+    # Method 2: Using hostname command
+    $ hostname -I | awk '{print $1}'
+     
+    # Method 3: Check specific interface
+    $ ip addr show | grep 'inet ' | grep -v '127.0.0.1'
+    ```
+2. Find Your Gateway IP
+    ```sh
+    # Method 1: Using ip command
+    $ ip route | grep default | awk '{print $3}'
+    
+    # Method 2: Using route command
+    $ route -n | grep 'UG[ \t]' | awk '{print $2}'
+    ```
+
+3. Identify Your Network Interface
+    ```sh
+    # List all network interfaces
+    $ ip link show
+
+    # Show interfaces with IP addresses
+    $ ip addr show
+
+    # Find active interface (excluding loopback)
+    $ ip route | grep default | awk '{print $5}'
+    ```
+
+> [!WARNING]
+> 
+> Ensure the configured IP matches your actual network setup
+> Wrong interface names will cause AF_XDP socket binding to fail
+> The gateway IP must be reachable from your local network
 
 ```sh
 # First generate mtls certs for cli & yoda
