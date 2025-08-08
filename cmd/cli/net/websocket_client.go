@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	cfg "github.com/cezamee/Yoda/internal/config"
 	"github.com/gorilla/websocket"
@@ -99,4 +100,31 @@ func CreateSecureHTTPClient(method, query string, body io.Reader) (*http.Respons
 		return nil, fmt.Errorf("HTTP request failed: %v", err)
 	}
 	return resp, nil
+}
+
+// progressWriter displays download progress in the terminal
+type ProgressWriter struct {
+	Out          io.Writer
+	Total        *int64
+	Size         int64
+	StartTime    time.Time
+	LastPrint    *time.Time
+	ShowProgress bool
+}
+
+// Write implements io.Writer and prints progress every 500ms
+func (pw *ProgressWriter) Write(p []byte) (int, error) {
+	n, err := pw.Out.Write(p)
+	*pw.Total += int64(n)
+	if pw.ShowProgress && time.Since(*pw.LastPrint) > 500*time.Millisecond {
+		percent := float64(*pw.Total) / float64(pw.Size)
+		elapsed := time.Since(pw.StartTime).Seconds()
+		if elapsed <= 0 {
+			elapsed = 1e-3
+		}
+		speed := float64(*pw.Total) / (1024 * 1024) / elapsed
+		fmt.Printf("\r%.0f%% - %.2f MB/s", percent*100, speed)
+		*pw.LastPrint = time.Now()
+	}
+	return n, err
 }

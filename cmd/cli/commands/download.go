@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -13,30 +14,26 @@ import (
 )
 
 func DownloadCommand(args []string) {
+	// Parse arguments
 	remotePath := args[0]
 	localPath := args[1]
 
-	interrupted := false
-	sigChan := make(chan os.Signal, 1)
-	doneChan := make(chan struct{})
-	signal.Notify(sigChan, os.Interrupt)
+	// Handle Ctrl+C interruption with context
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
 
-	go func() {
-		<-sigChan
-		interrupted = true
-		close(doneChan)
-	}()
-
+	// Check if local file exists
 	if _, err := os.Stat(localPath); err == nil {
 		fmt.Printf("⚠️ Local file '%s' already exists. Overwrite? (y/N): ", localPath)
 		var response string
 		fmt.Scanln(&response)
 		if response != "y" && response != "Y" && response != "yes" {
-			fmt.Printf("❌ Download cancelled\n")
+			fmt.Println("❌ Download cancelled")
 			return
 		}
 	}
 
+	// Request file from server
 	query := fmt.Sprintf("/download?path=%s", remotePath)
 	resp, err := net.CreateSecureHTTPClient("GET", query, nil)
 	if err != nil {
@@ -48,6 +45,8 @@ func DownloadCommand(args []string) {
 		fmt.Printf("❌ Download failed: server returned status %d\n", resp.StatusCode)
 		return
 	}
+
+	// Create local file
 	out, err := os.Create(localPath)
 	if err != nil {
 		fmt.Printf("❌ Cannot create local file: %v\n", err)
@@ -55,73 +54,56 @@ func DownloadCommand(args []string) {
 	}
 	defer func() {
 		out.Close()
-		if interrupted {
-			os.Remove(localPath)
-			fmt.Printf("\n❌ Download cancelled (Ctrl+C), file deleted.\n")
-		}
 	}()
 
-	if resp.ContentLength <= 0 {
+	// Print file size info
+	var size int64 = resp.ContentLength
+	if size > 0 {
+		fmt.Printf("Downloading %.2f MB (%d bytes)\n", float64(size)/(1024*1024), size)
+	} else {
 		fmt.Println("Downloading (unknown size)...")
 	}
 
-	buf := make([]byte, 256*1024)
+	// Setup progress and buffer
+	buf := make([]byte, 1024*1024)
 	var total int64 = 0
-	var size int64 = resp.ContentLength
 	showProgress := size > 0
-
-	if showProgress {
-		fmt.Printf("Downloading %.2f MB\n", float64(size)/(1024*1024))
-	}
-
 	startTime := time.Now()
-	completed := false
-
-	for {
-		select {
-		case <-doneChan:
-			return
-		default:
-			n, err := resp.Body.Read(buf)
-
-			if n > 0 {
-				written, werr := out.Write(buf[:n])
-				if werr != nil {
-					fmt.Printf("❌ Error writing file: %v\n", werr)
-					return
-				}
-
-				total += int64(written)
-
-				if showProgress {
-					percent := float64(total) / float64(size)
-					elapsed := time.Since(startTime).Seconds()
-					if elapsed <= 0 {
-						elapsed = 1e-3
-					}
-					speed := float64(total) / (1024 * 1024) / elapsed
-					fmt.Printf("\r%.0f%% - %.2f MB/s", percent*100, speed)
-				}
-			}
-
-			if err == io.EOF {
-				completed = true
-				break
-			}
-
-			if err != nil {
-				fmt.Printf("❌ Error reading file: %v\n", err)
-				return
-			}
-		}
-
-		if completed {
-			break
-		}
+	lastPrint := time.Now()
+	pw := &net.ProgressWriter{
+		Out:          out,
+		Total:        &total,
+		Size:         size,
+		StartTime:    startTime,
+		LastPrint:    &lastPrint,
+		ShowProgress: showProgress,
 	}
+	reader := io.TeeReader(resp.Body, pw)
 
-	if !interrupted {
-		fmt.Printf("\n")
-		fmt.Printf("✅ Downloaded to %s\n", localPath)
+	// Download loop with context cancellation
+	done := make(chan error, 1)
+	go func() {
+		_, err := io.CopyBuffer(io.Discard, reader, buf)
+		done <- err
+	}()
+	select {
+	case <-ctx.Done():
+		resp.Body.Close()
+		out.Close()
+		os.Remove(localPath)
+		fmt.Println("\n❌ Download cancelled (Ctrl+C), file deleted.")
+		return
+	case err := <-done:
+		if err != nil && err != io.EOF {
+			fmt.Printf("❌ Error reading file: %v\n", err)
+			return
+		}
+		if showProgress {
+			percent := float64(total) / float64(size)
+			elapsed := time.Since(startTime).Seconds()
+			speed := float64(total) / (1024 * 1024) / elapsed
+			fmt.Printf("\r%.0f%% - %.2f MB/s", percent*100, speed)
+		}
+		fmt.Printf("\n✅ Downloaded to %s\n", localPath)
 	}
 }
