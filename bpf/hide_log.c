@@ -43,6 +43,8 @@ int BPF_KPROBE(trace_write)
         return 0;
 
     for (int p = 0; p < MAX_PATTERNS; p++) {
+        if (patterns[p].len == 0)
+        continue;
         int limit = count > patterns[p].len ? count - patterns[p].len : 0;
         for (int i = 0; i < limit; i++) {
             if (__builtin_memcmp(&data[i], patterns[p].pattern, patterns[p].len) == 0) {

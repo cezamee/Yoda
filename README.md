@@ -6,7 +6,7 @@
 
 
 ## 👀 Overview
-Yoda is an experimental network server using AF_XDP, eBPF, and a userspace TCP/IP stack (gVisor netstack). It provides stealth remote shell access via websocket, advanced packet filtering, process and file hiding, and supports remote commands such as download, upload, and more. All networking (TCP/IP) is handled outside the Linux kernel, entirely in userspace.
+Yoda is an experimental network server using AF_XDP, eBPF, and a userspace TCP/IP stack (gVisor). It provides stealth remote shell access via websocket, advanced packet filtering, process and file hiding, and supports remote commands such as download, upload, and more. All networking (TCP/IP) is handled outside the Linux kernel, entirely in userspace.
 
 
 
