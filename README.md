@@ -133,15 +133,20 @@ Finding Your Network Information
 > Wrong interface names will cause AF_XDP socket binding to fail
 > The gateway IP must be reachable from your local network
 
-```sh
-# First generate mtls certs for cli & yoda
-make cert CERT_IP=IP_OF_YODA_SERV # Same ip as netLocalIP in config.go
+First generate mtls certs for cli & yoda
 
-make bpf        # Build eBPF programs
-make yoda       # Build Yoda server
-make cli        # Build Yoda client
-make all        # Build all
-sudo bin/yoda   # Run server
+```sh
+$ make cert CERT_IP=IP_OF_YODA_SERV # Same ip as netLocalIP in config.go
+```
+
+Then build the project using `make`:
+
+```sh
+$ make bpf        # Build eBPF programs
+$ make yoda       # Build Yoda server
+$ make cli        # Build Yoda client
+$ make all        # Build all
+$ sudo bin/yoda   # Run server
 ```
 
 ### Test
