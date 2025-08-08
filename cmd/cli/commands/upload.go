@@ -44,7 +44,6 @@ func UploadCommand(args []string) {
 	}
 	defer file.Close()
 
-	// Prepare upload
 	filename := filepath.Base(localPath)
 	query := fmt.Sprintf("/upload?path=%s", remotePath)
 	fmt.Printf("📤 Uploading '%s' (%d bytes) to '%s'...\n", filename, stat.Size(), remotePath)
@@ -71,9 +70,19 @@ func UploadCommand(args []string) {
 	go func() {
 		buf := make([]byte, 1024*1024) // 1MB buffer
 		reader := io.TeeReader(file, pw)
-		_, err := io.CopyBuffer(pipeWriter, reader, buf)
-		pipeWriter.Close()
-		done <- err
+		errCh := make(chan error, 1)
+		go func() {
+			_, err := io.CopyBuffer(pipeWriter, reader, buf)
+			errCh <- err
+		}()
+		select {
+		case <-ctx.Done():
+			pipeWriter.Close()
+			done <- ctx.Err()
+		case err := <-errCh:
+			pipeWriter.Close()
+			done <- err
+		}
 	}()
 
 	// Send file to server
