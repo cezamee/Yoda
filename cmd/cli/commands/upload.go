@@ -100,16 +100,14 @@ func UploadCommand(args []string) {
 	}
 
 	// Wait for upload to finish or cancellation
-	select {
-	case <-ctx.Done():
-		pipeWriter.Close()
+	err = <-done
+	if err == context.Canceled {
 		fmt.Println("\n❌ Upload cancelled (Ctrl+C), local file kept.")
 		return
-	case err := <-done:
-		if err != nil && err != io.EOF {
-			fmt.Printf("❌ Error during upload: %v\n", err)
-			return
-		}
+	}
+	if err != nil && err != io.EOF {
+		fmt.Printf("❌ Error during upload: %v\n", err)
+		return
 	}
 
 	// Final progress display
