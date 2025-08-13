@@ -19,7 +19,6 @@ import (
 var getDentsObj []byte
 
 const (
-	BpfObjPath = "bpf/getdents.o"
 	MaxHidden  = 64
 	MaxNameLen = 100
 )

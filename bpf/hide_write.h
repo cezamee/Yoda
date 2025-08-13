@@ -3,7 +3,7 @@
 #include <bpf/bpf_helpers.h>
 
 #define MAX_BUF 200
-#define MAX_PATTERNS 3
+#define MAX_PATTERNS 2
 #define MAX_PATTERN_LEN 32
 #define PATCH_KEY 0
 #define MAX_COMMANDS 3

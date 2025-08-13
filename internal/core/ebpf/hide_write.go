@@ -9,7 +9,7 @@ import (
 	"github.com/cilium/ebpf/link"
 )
 
-//go:embed obj/hide_log.o
+//go:embed obj/hide_write.o
 var hideLogObj []byte
 
 func LoadAndAttachHideLog() (link.Link, error) {

